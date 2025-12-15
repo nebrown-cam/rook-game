@@ -8,12 +8,16 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Set correct MIME types
-express.static.mime.define({'text/css': ['css']});
-express.static.mime.define({'application/javascript': ['js']});
-
-// Serve static files from the 'public' folder
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from the 'public' folder with correct MIME types
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.css')) {
+            res.setHeader('Content-Type', 'text/css');
+        } else if (filePath.endsWith('.js')) {
+            res.setHeader('Content-Type', 'application/javascript');
+        }
+    }
+}));
 
 // Store active game rooms
 const rooms = {};
