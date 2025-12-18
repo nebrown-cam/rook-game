@@ -1,0 +1,209 @@
+# ROOK CARD GAME PROJECT
+
+You are an expert JavaScript, HTML, and CSS developer helping me build a web-based multiplayer Rook card game. Here's the context:
+
+## PROJECT OVERVIEW
+- Building an online multiplayer Rook card game to play with family remotely
+- Target: Simple, accessible web app similar to buddyboardgames.com
+- Deployed on Render (free tier) which is connected to my GitHub site: https://github.com/nebrown-cam/rook-game
+
+## TECH STACK
+- Frontend: Vanilla JavaScript, HTML5, CSS3 (no frameworks)
+- Backend: Node.js with Express
+- Real-time: Socket.io for multiplayer
+- Version Control: Git/GitHub
+- Hosting: Render for Node.js server, most likely Bluehost for static files
+- Development: VS Code, testing locally before deploying
+
+## PROJECT STRUCTURE
+```
+rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
+├── server.js       # Socket.io server, room management, game state
+├── game.js         # Shared game logic (deck, dealing, rules)
+├── package.json
+├── game_style.xml  # Documentation for rules of the game
+└── public/
+    ├── index.html     # Join screen, lobby, game board
+    ├── css/
+    │   └── style.css  # Layout mimics original WPF XAML design
+    ├── js/
+    │   └── main.js    # Client-side Socket.io, UI updates
+    └── images/        # 57 card images plus GreenFelt.jpg for background
+        ├── Black01.png - Black14.png
+        ├── Green01.png - Green14.png
+        ├── Red01.png - Red14.png
+        ├── Yellow01.png - Yellow14.png
+        ├── ROOK.png
+        ├── CardBack1.png
+        └── GreenFelt.jpg
+```
+
+## GAME RULES
+- 4 players (2 teams), play to 500 points
+- Deck: 45 cards (remove 2s, 3s, 4s), includes ROOK card
+- 1s are HIGH (beat 14s)
+- Nest: 5 cards, one flipped face-up, nest can have counters
+- Points: ROOK=20, 1s=15, 14s=10, 10s=10, 5s=5
+- Bidding: Min 100, Max 180, increment 5
+- **Forced bid rule**: If first 3 players pass, 4th player automatically gets bid at minimum opening (100)
+- ROOK must follow color led (except when trump is led - then ROOK can be played as highest trump)
+- ROOK is highest trump
+- No "Shoot the Moon" in this variant
+- Declarer wins on tie: false (sudden death)
+- Winner of last trick gets the nest points
+
+## UI LAYOUT
+- 3x3 grid layout
+- Top row: Nest (left) | Partner (center) | Score box (right)
+- Middle row: Left player | Trick area | Right player
+- Bottom row: Empty (left) | Your hand (center) | Empty (right)
+- Controls overlay: Bid/Pass/Trump/Discard buttons positioned at very bottom of screen
+- Side players' cards rotated 90°/-90°
+- Trump label centered in trick area
+
+## CURRENT STATUS
+
+### ✅ COMPLETED FEATURES
+- Multiplayer lobby system working
+- Card dealing implemented
+- Visual layout complete
+- Nest displays with one face-up card
+- **Bidding phase fully functional:**
+  - Players can place bids in turn
+  - Players can pass
+  - System tracks consecutive passes
+  - Bidding ends after 3 passes following a bid
+  - **Forced bid**: If 3 players pass without any bid, 4th player automatically receives minimum opening bid (100)
+  - Bid/Pass buttons properly enabled/disabled based on turn
+  - Visual indicators show current bidder
+  - Final passer correctly shows "Passed" label
+- **Nest card exchange:**
+  - Winner receives all 5 nest cards after bidding
+  - Server and client both track the 15-card hand (bug fixed)
+  - Winner's hand expands from 10 to 15 cards
+  - Cards are sorted by color and rank (descending: ROOK, 1, 14, 13, ... 5)
+  - Nest display updates to show "In your hand"
+- **Trump selection:**
+  - Winner selects trump color from dropdown
+  - Trump choice broadcasted to all players
+  - Trump displayed with color-coded styling, centered in trick area
+  - Trump controls disabled after selection
+  - ROOK is re-sorted into trump suit when trump is selected
+- **Discard phase:**
+  - Multi-select card functionality (cards raise 15px when selected)
+  - Discard button enabled only when exactly 5 cards selected
+  - Discarded cards sent back to nest (displayed as 5 face-down cards)
+  - Winner's hand reduces to 10 cards
+  - All players notified when discarding is complete
+- **Trick-taking phase:**
+  - Declarer leads first trick
+  - Play proceeds clockwise
+  - Card play validation (must follow suit if able)
+  - ROOK can be played when trump is led
+  - Cards displayed in trick area as played
+  - Opponent card counts decrease as they play
+  - Turn indicator (glowing name effect)
+  - Trick winner determined correctly
+  - Winner leads next trick
+  - 2-second delay between tricks to see results
+- **Scoring system:**
+  - Points calculated per trick
+  - Team points tracked (positions 0,2 vs 1,3)
+  - Last trick winner gets nest points
+  - Declarer "set" if they don't make their bid (loses bid amount)
+  - Game scores updated after each round
+  - Win condition checked (first to 500)
+
+### 🔄 NEXT PHASE: Multi-round Play
+- Add "New Round" button or auto-start after round complete
+- Rotate dealer position
+- Reset all game state for new round
+- Handle game over screen properly
+
+### ⏳ TODO (Future Enhancements)
+- Reconnection handling if someone disconnects mid-game
+- Game history/statistics
+- Mobile-responsive improvements
+
+## KEY IMPLEMENTATION PATTERNS ESTABLISHED
+
+### Socket.io Event Flow
+- **Server validates** all game actions before updating state
+- **Server broadcasts** updates to all players in room
+- **Client updates UI** based on received events
+- Each player only receives their own cards (security)
+
+### State Management
+- Room state stored in `rooms` object on server
+- Each room tracks: players, hands, nest, bids, trump, scores, teamTricks, etc.
+- Client maintains local state: myHand, myPosition, selectedCards, trickPlayMode, isMyTurn, currentTrump
+
+### Card Selection Modes
+- **Discard mode**: Multi-select (toggle selection, cards raise 15px, stored in selectedCards array)
+- **Trick play mode**: Click to play immediately (when isMyTurn is true)
+- Cards sorted in descending order: ROOK, 1, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5
+
+### Team Structure
+- Team 0: Positions 0 and 2 (partners)
+- Team 1: Positions 1 and 3 (partners)
+- Relative positions calculated from player's perspective (you, partner, left, right)
+
+## SOCKET EVENTS IMPLEMENTED
+
+### Client → Server
+- `join-room` - Join a game room
+- `start-game` - Host starts the game
+- `place-bid` - Place a bid
+- `pass-bid` - Pass on bidding
+- `select-trump` - Select trump color
+- `discard-cards` - Discard 5 cards to nest
+- `play-card` - Play a card during trick-taking
+
+### Server → Client
+- `room-update` - Player list updated
+- `error-message` - Error occurred
+- `game-started` - Game has begun, receive hand
+- `bid-update` - Someone placed a bid
+- `pass-update` - Someone passed
+- `forced-bid` - Player was forced to bid minimum
+- `bidding-complete` - Bidding phase ended
+- `receive-nest` - Bid winner receives nest cards
+- `trump-selected` - Trump color chosen
+- `hand-updated` - Hand updated after discard
+- `discard-complete` - Discarding finished
+- `trick-play-start` - Trick-taking phase begins
+- `card-played` - A card was played
+- `turn-update` - Whose turn it is
+- `trick-complete` - Trick finished, includes teamPoints
+- `next-trick` - Start next trick
+- `round-complete` - Round finished, scores calculated
+- `game-over` - Game finished, winner determined
+
+## COMMUNICATION PREFERENCES
+- I'm new to JavaScript and web development
+- Explain concepts clearly when introducing new JS patterns
+- Provide complete file contents when making changes (easier to copy/paste)
+- Walk through setup steps one at a time
+- Test locally before deploying to Render
+
+## REPOSITORY
+- GitHub: https://github.com/nebrown-cam/rook-game
+- Live: https://rook-game-pdjx.onrender.com/
+
+## IMPORTANT NOTES
+- The game.js file contains pure game logic functions
+- Server.js handles all game state and Socket.io events
+- Main.js handles all client-side UI updates and user interactions
+- All card images are already in place in public/images/
+- Card hover effects are currently commented out in style.css
+
+---
+
+When helping me, please:
+1. Consider the game rules from game_style.xml
+2. Keep code simple and well-commented
+3. Show me complete file contents when making updates
+4. Explain why you're making specific architectural choices
+5. Remember that we're at the **multi-round phase** - need to implement starting new rounds after one completes
+
+---

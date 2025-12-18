@@ -5,13 +5,14 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Tahoma, 'Segoe UI', Geneva, Verdana, sans-serif;
     background-color: #1a5c2e;
+    background-image: url('../images/GreenFelt.jpg');
+    background-size: cover;
+    background-attachment: fixed;
     color: white;
     min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    overflow: hidden;
 }
 
 .screen {
@@ -23,6 +24,7 @@ body {
     display: none !important;
 }
 
+/* Join Screen */
 h1 {
     font-size: 72px;
     margin-bottom: 40px;
@@ -55,6 +57,26 @@ input:focus {
 }
 
 button {
+    padding: 8px 16px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    background-color: #e0e0e0;
+    color: black;
+    border: 1px solid #888;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #d0d0d0;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.join-form button {
     padding: 15px 30px;
     font-size: 18px;
     font-weight: bold;
@@ -62,17 +84,10 @@ button {
     color: #1a5c2e;
     border: none;
     border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
 }
 
-button:hover {
+.join-form button:hover {
     background-color: #ffec80;
-    transform: scale(1.02);
-}
-
-button:active {
-    transform: scale(0.98);
 }
 
 .error {
@@ -81,12 +96,14 @@ button:active {
     font-weight: bold;
 }
 
+/* Lobby Screen */
 .players-list {
     background-color: rgba(0, 0, 0, 0.2);
     padding: 30px;
     border-radius: 12px;
     margin: 20px auto;
     max-width: 400px;
+    backdrop-filter: blur(5px);
 }
 
 .players-list h3 {
@@ -120,4 +137,470 @@ button:active {
 
 #start-btn {
     margin-top: 20px;
+    padding: 15px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: #ffd700;
+    color: #1a5c2e;
+    border: none;
+    border-radius: 8px;
+}
+
+/* Game Screen */
+#game-screen {
+    display: none;
+    padding: 10px;
+    height: 100vh;
+    position: relative; /* Context for absolute overlays */
+}
+
+#game-screen:not(.hidden) {
+    display: block;
+}
+
+.game-grid {
+    display: grid;
+    grid-template-columns: 250px 1fr 250px;
+    grid-template-rows: 170px 1fr 250px;
+    height: 100%;
+    width: 100%;
+    gap: 0;
+}
+
+.grid-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Grid positioning */
+.top-left { grid-area: 1 / 1 / 2 / 2; justify-content: flex-start; align-items: flex-start; }
+.top-center { grid-area: 1 / 2 / 2 / 3; align-items: flex-end; padding-bottom: 10px;}
+.top-right { grid-area: 1 / 3 / 2 / 4; justify-content: flex-end; align-items: flex-start; }
+.middle-left { grid-area: 2 / 1 / 3 / 2; justify-content: flex-end; }
+.middle-center { grid-area: 2 / 2 / 3 / 3; }
+.middle-right { grid-area: 2 / 3 / 3 / 4; justify-content: flex-start; }
+.bottom-left { grid-area: 3 / 1 / 4 / 2; }
+.bottom-center { grid-area: 3 / 2 / 4 / 3; align-items: flex-end; }
+.bottom-right { grid-area: 3 / 3 / 4 / 4; }
+
+/* Global Glassmorphism Style */
+.nest-area, 
+.score-box, 
+.controls-area {
+    background: rgba(26, 92, 46, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 10px;
+    backdrop-filter: blur(4px);
+}
+
+/* Labels */
+.area-label {
+    display: block;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 18px; /* Was 12px */
+    font-weight: bold;
+    color: white;
+    margin-bottom: 8px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8); /* Stronger shadow for readability */
+    letter-spacing: 0.5px;
+}
+
+.bid-label {
+    display: block;
+    font-family: Arial, sans-serif;
+    font-size: 16px; /* Was 12px */
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 5px;
+    min-height: 20px; /* Increased height to prevent jumping */
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+/* Nest area */
+.nest-area {
+  /* shrink-wrap the glass box to label + stack */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+
+  /* tighter padding so it hugs the stack */
+  padding: 10px;
+  margin: 10px;
+
+  /* Glass style (keep your existing look) */
+  background: rgba(26, 92, 46, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.card-stack {
+    position: relative;
+    width: 130px; 
+    height: 105px;
+    margin-top: 5px; 
+}
+
+.card-stack .card-back,
+.card-stack .card {
+    position: absolute;
+    width: 80px;
+    height: 105px;
+    border-radius: 5px;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    top: 0;
+}
+
+.card-stack .card-back:nth-child(1) { left: 0; }
+.card-stack .card-back:nth-child(2) { left: 10px; }
+.card-stack .card-back:nth-child(3) { left: 20px; }
+.card-stack .card-back:nth-child(4) { left: 30px; }
+.card-stack .card-back:nth-child(5) { left: 40px; }
+.card-stack .card:nth-child(6)     { left: 50px; } 
+
+.card-back {
+    width: 80px;
+    height: 105px;
+    background-image: url('../images/CardBack1.png');
+    background-size: cover;
+    border-radius: 5px;
+}
+
+/* Player areas */
+.player-area {
+    text-align: center;
+}
+
+.player-area.partner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ------------------------------------------------
+   FLEXBOX HAND IMPLEMENTATION (Top/Bottom) 
+   ------------------------------------------------
+*/
+
+.card-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 130px; /* Extra height for hover pop-up */
+    width: 100%;
+}
+
+.card-row.partner-hand {
+    height: 110px; 
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Partner hand slightly tighter */
+.card-row.partner-hand .card-back {
+    position: relative;
+    margin-right: -50px; /* Tight overlap for partner */
+    box-shadow: -1px 0 3px rgba(0,0,0,0.3);
+}
+.card-row.partner-hand .card-back:last-child {
+    margin-right: 0;
+}
+
+/* Human hand */
+.player-area.you {
+    width: 100%;
+    margin-bottom: 60px;
+}
+
+.card-row.your-hand .card {
+    position: relative;
+    width: 80px;
+    height: 105px;
+    border-radius: 5px;
+    margin-right: -40px; /* The overlap magic */
+    transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28), margin 0.2s;
+    transform-origin: bottom center;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.4);
+    cursor: pointer;
+}
+
+.card-row.your-hand .card img {
+    width: 100%;
+    height: 100%;
+    border-radius: 5px;
+}
+
+.card-row.your-hand .card:last-child {
+    margin-right: 0;
+}
+
+/* Hover Effects */
+.card-row.your-hand .card:hover {
+    /* DISABLED FOR NOW
+    transform: translateY(-25px) scale(1.1);
+    z-index: 100;
+    margin-right: 0px;
+    */
+}
+
+.card-row.your-hand .card.selected {
+    transform: translateY(-30px);
+    box-shadow: 0 0 15px 5px #ffd700;
+    z-index: 101;
+    border: 2px solid #ffd700;
+}
+
+/* ------------------------------------------------
+   SIDE PLAYERS (Flex Column)
+   ------------------------------------------------
+*/
+.side-player {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.card-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 120px;
+}
+
+.side-player .card-column .card-back {
+    position: relative;
+    margin-bottom: -60px; /* Vertical overlap */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Rotate cards for orientation */
+.side-player.left .card-column .card-back {
+    transform: rotate(90deg);
+}
+
+.side-player.right .card-column .card-back {
+    transform: rotate(-90deg);
+}
+
+.side-player .card-column .card-back:last-child {
+    margin-bottom: 0;
+}
+
+
+/* Trick area - Circular Target */
+.trick-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    
+    width: 450px; 
+    height: 450px; 
+    
+    border: 3px dashed rgba(255, 255, 255, 0.2); /* Thicker border */
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.trump-label {
+    position: absolute;
+    top: 220px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 2px black;
+    white-space: nowrap;
+}
+
+#trump-suit {
+    color: white;
+}
+
+.trick-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px; /* Increased gap */
+    margin-top: 10px;
+}
+
+/* Push the left/right cards further apart to fit the larger circle */
+.trick-middle-row {
+    display: flex;
+    gap: 140px; /* Increased from 90px to spread them out */
+}
+
+/* Optional: Make the trick placeholders slightly more visible */
+.trick-card {
+    width: 80px;
+    height: 105px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px dashed rgba(255, 255, 255, 0.4); /* clearer dashed lines */
+    border-radius: 5px;
+    transition: all 0.3s;
+}
+
+.trick-card img {
+    width: 100%;
+    height: 100%;
+    border-radius: 5px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+
+/* Score box */
+.score-box {
+    margin: 10px;
+    min-width: 180px;
+    font-family: Arial, sans-serif;
+}
+
+.score-header {
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 16px; /* Was 14px */
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    padding-bottom: 5px;
+}
+
+.team-score {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+}
+
+.team-name {
+    font-size: 14px; /* Slightly larger */
+    font-weight: bold;
+}
+
+.team-points {
+    font-weight: bold;
+    font-size: 18px; /* Much larger score numbers */
+}
+
+/* ------------------------------------------------
+   CONTROLS OVERLAY
+   ------------------------------------------------
+*/
+.controls-area {
+    position: absolute;
+    bottom: 10px; /* Just below the player's hand */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    
+    display: flex;
+    flex-direction: row; /* Horizontal layout */
+    gap: 15px;
+    align-items: center;
+}
+
+.control-row {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.control-row select {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    padding: 6px;
+    border-radius: 4px;
+    border: none;
+    min-width: 60px;
+}
+
+.help-bid {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    color: white;
+    margin-right: 5px;
+}
+
+/* Override button styles for controls */
+.controls-area button {
+    background-color: #ffd700;
+    color: #1a5c2e;
+    font-weight: bold;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px;
+    font-size: 14px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.2s;
+}
+
+.controls-area button:hover {
+    background-color: #ffec80;
+}
+
+.controls-area button:disabled {
+    background-color: #555;
+    color: #888;
+    box-shadow: none;
+}
+
+/* ADD THIS to ensure images always fit their container */
+.card img, 
+.card-back img, /* If you use imgs for backs */
+.trick-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Ensures the whole card is visible */
+    border-radius: 5px;
+    display: block; /* Removes extra space below inline images */
+}
+
+/* Ensure the nest stack explicitly constrains width */
+.card-stack .card {
+    width: 80px;  /* Force width */
+    height: 105px; /* Force height */
+    position: absolute;
+    /* ... existing styles ... */
+}
+
+/* Discard selection - subtle raise without popping forward */
+.card-row.your-hand .card.discard-selected {
+    transform: translateY(-15px);
+    /* Note: no z-index change, so card stays behind neighbors */
+    box-shadow: 0 0 8px 2px rgba(255, 215, 0, 0.6);
+    border: 2px solid #ffd700;
+}
+
+/* Override hover effect during discard mode - keep it more subtle */
+.card-row.your-hand .card.discard-selected:hover {
+    transform: translateY(-15px); /* Same as selected, don't pop more */
+    z-index: auto; /* Don't bring to front */
+}
+
+/* Current turn indicator - glowing effect on player name */
+.current-turn {
+    color: #ffd700 !important;
+    text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ff8c00 !important;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ff8c00;
+    }
+    50% {
+        text-shadow: 0 0 15px #ffd700, 0 0 30px #ffd700, 0 0 45px #ff8c00;
+    }
 }

@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Join Screen -->
     <div id="join-screen" class="screen">
         <h1>Rook</h1>
         <div class="join-form">
@@ -18,23 +17,112 @@
         <p id="error-message" class="error"></p>
     </div>
 
-    <!-- Lobby Screen -->
     <div id="lobby-screen" class="screen hidden">
         <h2>Room: <span id="display-room-code"></span></h2>
         <div class="players-list">
             <h3>Players:</h3>
-            <ul id="players">
-                <!-- Players will be added here dynamically -->
-            </ul>
+            <ul id="players"></ul>
         </div>
         <p class="waiting-message">Waiting for 4 players...</p>
         <button id="start-btn" class="hidden">Start Game</button>
     </div>
 
-    <!-- Game Screen (placeholder for now) -->
     <div id="game-screen" class="screen hidden">
-        <h2>Game Started!</h2>
-        <p>The game board will go here.</p>
+        
+        <div class="controls-area">
+            <div class="control-row">
+                <label class="help-bid" id="help-bid-value"></label>
+                <select id="bid-select"></select>
+                <button id="bid-btn">Bid</button>
+            </div>
+            <div class="control-row">
+                <button id="pass-btn">Pass</button>
+            </div>
+            <div class="control-row">
+                <select id="trump-select" disabled>
+                    <option value="Black">Black</option>
+                    <option value="Green">Green</option>
+                    <option value="Red">Red</option>
+                    <option value="Yellow">Yellow</option>
+                </select>
+                <button id="trump-btn" disabled>Set Trump</button>
+            </div>
+            <div class="control-row">
+                <button id="discard-btn" disabled>Discard</button>
+            </div>
+        </div>
+
+        <div class="game-grid">
+            <div class="grid-cell top-left">
+                <div class="nest-area">
+                    <label class="area-label">Nest</label>
+                    <div class="card-stack" id="nest-cards"></div>
+                </div>
+            </div>
+            <div class="grid-cell top-center">
+                <div class="player-area partner">
+                    <label class="area-label" id="partner-name">Partner</label>
+                    <label class="bid-label" id="partner-bid"></label>
+                    <div class="card-row partner-hand" id="partner-cards"></div>
+                </div>
+            </div>
+            <div class="grid-cell top-right">
+                <div class="score-box">
+                    <div class="score-header">Play to 500</div>
+                    <div class="team-score">
+                        <label class="team-name" id="team-human-name">You &amp; Partner</label>
+                        <label class="team-points" id="team-human-score">0</label>
+                    </div>
+                    <div class="team-score">
+                        <label class="team-name" id="team-ai-name">Opponents</label>
+                        <label class="team-points" id="team-ai-score">0</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-cell middle-left">
+                <div class="player-area side-player left">
+                    <label class="area-label" id="left-player-name">Left Player</label>
+                    <label class="bid-label" id="left-player-bid"></label>
+                    <div class="card-column" id="left-player-cards"></div>
+                </div>
+            </div>
+            <div class="grid-cell middle-center">
+                <div class="trick-area">
+                    <label class="trump-label">Trump: <span id="trump-suit">None</span></label>
+                    <div class="trick-layout">
+                        <div class="trick-top">
+                            <div class="trick-card" id="trick-card-partner"></div>
+                        </div>
+                        <div class="trick-middle-row">
+                            <div class="trick-card" id="trick-card-left"></div>
+                            <div class="trick-card" id="trick-card-right"></div>
+                        </div>
+                        <div class="trick-bottom">
+                            <div class="trick-card" id="trick-card-you"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-cell middle-right">
+                <div class="player-area side-player right">
+                    <label class="area-label" id="right-player-name">Right Player</label>
+                    <label class="bid-label" id="right-player-bid"></label>
+                    <div class="card-column" id="right-player-cards"></div>
+                </div>
+            </div>
+
+            <div class="grid-cell bottom-left">
+                </div>
+            <div class="grid-cell bottom-center">
+                <div class="player-area you">
+                    <label class="area-label" id="your-name">You</label>
+                    <div class="card-row your-hand" id="your-hand"></div>
+                </div>
+            </div>
+            <div class="grid-cell bottom-right">
+                </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

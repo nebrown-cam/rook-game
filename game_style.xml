@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<root xmlns="rook-game" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" >
+	<gameStyle styleName="Nate's Kentucky ROOK">
+		<description>Personal family style of ROOK</description>
+		<object>
+			<score>500</score>
+			<declarerWinsOnTie>false</declarerWinsOnTie> <!-- if there is a game score tie, declarer and partner win  -->
+		</object>
+		<dealing>
+			<numCardsInDeck>45</numCardsInDeck>
+			<numCardsInNest>5</numCardsInNest>
+		</dealing>
+		<deck>
+			<onesHigh>true</onesHigh>
+			<hasROOK>true</hasROOK>
+			<remove faceValue="2" />
+			<remove faceValue="3" />
+			<remove faceValue="4" />
+		</deck>
+		<bidding>
+			<minOpeningBid>100</minOpeningBid>
+			<maxBid>180</maxBid>
+		</bidding>
+		<scoring>
+			<points faceValue="0" pointsValue="20" />
+			<points faceValue="5" pointsValue="5" />
+			<points faceValue="10" pointsValue="10" />
+			<points faceValue="14" pointsValue="10" />
+			<points faceValue="1" pointsValue="15" />
+			<nestIsAdditionalTrick>false</nestIsAdditionalTrick>
+			<bonusPointsForMostTricksTaken>0</bonusPointsForMostTricksTaken>
+			<bonusPointsOnTie>false</bonusPointsOnTie> <!-- on a tie of tricks taken, bonus goes to opponents of declarer -->
+		</scoring>
+		<playing>
+			<flipOneCardInNest>true</flipOneCardInNest>
+			<nestHasCounters>true</nestHasCounters>
+			<whoLeads>Declarer</whoLeads>
+			<shootTheMoon>false</shootTheMoon>
+		</playing>
+		<ROOK>
+			<followColorLed>true</followColorLed>
+			<isHighestTrump>true</isHighestTrump>
+		</ROOK>
+	</gameStyle>
+	
+</root>
