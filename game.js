@@ -105,7 +105,7 @@ function dealCards() {
     return { hands, nest };
 }
 
-// Sort a hand by color, then by number within color
+// Sort a hand by color, then by number within color (descending: ROOK, 1, 14, 13, ... 5)
 function sortHand(hand) {
     const colorOrder = { 'Black': 0, 'Green': 1, 'Red': 2, 'Yellow': 3, 'Rook': 4 };
 
@@ -114,13 +114,16 @@ function sortHand(hand) {
         if (colorOrder[a.color] !== colorOrder[b.color]) {
             return colorOrder[a.color] - colorOrder[b.color];
         }
-        // Within same color, sort by number
-        // If 1s are high, they go after 14
+        
+        // Within same color, sort descending
+        // 1s are highest (beat 14s), so they come first
         if (GAME_CONFIG.onesHigh) {
-            if (a.number === 1) return 1;
-            if (b.number === 1) return -1;
+            if (a.number === 1 && b.number !== 1) return -1;
+            if (b.number === 1 && a.number !== 1) return 1;
         }
-        return a.number - b.number;
+        
+        // Descending order for remaining cards (14, 13, 12, ... 5)
+        return b.number - a.number;
     });
 }
 

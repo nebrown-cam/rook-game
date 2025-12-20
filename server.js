@@ -1,3 +1,5 @@
+// server.js - Complete updated file
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -23,6 +25,76 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // Store active game rooms
 const rooms = {};
 
+// Helper function to start a new round (used for initial start and subsequent rounds)
+function startNewRound(roomCode) {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    // Deal the cards
+    const { hands, nest } = game.dealCards();
+    room.hands = hands;
+    room.nest = nest;
+
+    // Reset bidding state
+    room.currentBid = 0;
+    room.highBidder = null;
+    room.highBidderPosition = null;
+    room.currentBidder = (room.dealer + 1) % 4; // Left of dealer bids first
+    room.passedPlayers = [];
+    room.biddingComplete = false;
+    room.trumpSelected = false;
+    room.discardComplete = false;
+    room.trump = null;
+
+    // Reset trick-taking state
+    room.trick = [];
+    room.ledColor = null;
+    room.tricksPlayed = 0;
+    room.teamTricks = [[], []];
+    room.currentPlayer = 0;
+    room.trickLeader = 0;
+
+    // Reset player passed flags
+    room.players.forEach(p => p.hasPassed = false);
+
+    // Prepare nest info - one card face up per game rules
+    const nestInfo = {
+        count: nest.length,
+        faceUpCard: game.GAME_CONFIG.flipOneCardInNest ? nest[nest.length - 1] : null
+    };
+
+    // Get initial bid options
+    const bidOptions = game.getBidOptions(0);
+
+    // Send each player their hand (only their own cards)
+    room.players.forEach((player, index) => {
+        const playerSocket = io.sockets.sockets.get(player.id);
+        if (playerSocket) {
+            playerSocket.emit('new-round', {
+                hand: hands[index],
+                position: index,
+                players: room.players.map(p => ({
+                    name: p.name,
+                    position: p.position
+                })),
+                nest: nestInfo,
+                bidOptions: bidOptions,
+                currentBidder: room.currentBidder,
+                currentBid: room.currentBid,
+                dealer: room.dealer,
+                teamScores: room.teamScores,
+                gameConfig: {
+                    minBid: game.GAME_CONFIG.minOpeningBid,
+                    maxBid: game.GAME_CONFIG.maxBid,
+                    bidIncrement: game.GAME_CONFIG.bidIncrement
+                }
+            });
+        }
+    });
+
+    console.log(`New round started in room ${roomCode}. Dealer: Player ${room.dealer}`);
+}
+
 // Handle socket connections
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
@@ -45,7 +117,6 @@ io.on('connection', (socket) => {
                 highBidderPosition: null,
                 currentBidder: 0,
                 passedPlayers: [],
-                consecutivePasses: 0,
                 trump: null,
                 dealer: 0,
                 currentPlayer: 0,
@@ -128,7 +199,6 @@ io.on('connection', (socket) => {
         room.highBidderPosition = null;
         room.currentBidder = (room.dealer + 1) % 4; // Left of dealer bids first
         room.passedPlayers = [];
-        room.consecutivePasses = 0;
         room.biddingComplete = false;
         room.trumpSelected = false;
         room.discardComplete = false;
@@ -214,9 +284,47 @@ io.on('connection', (socket) => {
         room.currentBid = bidAmount;
         room.highBidder = player.id;
         room.highBidderPosition = player.position;
-        room.consecutivePasses = 0; // Reset consecutive passes
 
         console.log(`${player.name} bid ${bidAmount} in room ${roomCode}`);
+
+        // Count how many players have passed
+        const passedCount = room.players.filter(p => p.hasPassed).length;
+
+        // Check if bidding is complete (3 players have passed)
+        if (passedCount === 3) {
+            room.biddingComplete = true;
+
+            console.log(`*** BIDDING COMPLETE in room ${roomCode}. Winner: ${player.name} with ${room.currentBid} ***`);
+
+            // Notify all players of the bid first
+            io.to(roomCode).emit('bid-update', {
+                bidder: player.name,
+                bidderPosition: player.position,
+                bidAmount: bidAmount,
+                currentBid: room.currentBid,
+                currentBidder: -1,
+                bidOptions: []
+            });
+
+            // Notify all players that bidding is complete
+            io.to(roomCode).emit('bidding-complete', {
+                winner: player.name,
+                winnerPosition: player.position,
+                winningBid: room.currentBid
+            });
+
+            // Add nest cards to winner's hand on server side
+            room.hands[player.position] = room.hands[player.position].concat(room.nest);
+            game.sortHand(room.hands[player.position]);
+
+            // Send nest cards to the winner
+            socket.emit('receive-nest', {
+                nestCards: room.nest
+            });
+            console.log(`Sent nest cards to ${player.name}. Hand now has ${room.hands[player.position].length} cards.`);
+
+            return;
+        }
 
         // Get new bid options for next bidder
         const newBidOptions = game.getBidOptions(room.currentBid);
@@ -267,15 +375,16 @@ io.on('connection', (socket) => {
 
         // Mark player as passed
         player.hasPassed = true;
-        room.consecutivePasses++;
 
-        console.log(`${player.name} passed in room ${roomCode}. Consecutive passes: ${room.consecutivePasses}`);
+        // Count how many players have passed
+        const passedCount = room.players.filter(p => p.hasPassed).length;
+
+        console.log(`${player.name} passed in room ${roomCode}. Total passed: ${passedCount}`);
 
         // Check if 3 players have passed without anyone bidding (force the 4th player to bid minimum)
-        if (room.consecutivePasses === 3 && room.highBidder === null) {
-            // Find the next player (the 4th player who hasn't passed yet)
-            const nextBidderPosition = (room.currentBidder + 1) % 4;
-            const forcedBidder = room.players.find(p => p.position === nextBidderPosition);
+        if (passedCount === 3 && room.highBidder === null) {
+            // Find the player who hasn't passed
+            const forcedBidder = room.players.find(p => !p.hasPassed);
 
             console.log(`*** 3 PASSES in room ${roomCode}. ${forcedBidder.name} is FORCED to bid ${game.GAME_CONFIG.minOpeningBid} ***`);
 
@@ -284,6 +393,14 @@ io.on('connection', (socket) => {
             room.highBidder = forcedBidder.id;
             room.highBidderPosition = forcedBidder.position;
             room.biddingComplete = true;
+
+            // Broadcast the pass first
+            io.to(roomCode).emit('pass-update', {
+                passer: player.name,
+                passerPosition: player.position,
+                currentBidder: -1,
+                bidOptions: []
+            });
 
             // Notify all players about the forced bid
             io.to(roomCode).emit('forced-bid', {
@@ -315,13 +432,13 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Check if bidding is over (3 consecutive passes after at least one bid)
-        if (room.consecutivePasses >= 3 && room.highBidder !== null) {
-            // First, broadcast this final pass to all players
+        // Check if bidding is over (3 players have passed after at least one bid)
+        if (passedCount === 3 && room.highBidder !== null) {
+            // Broadcast this final pass to all players
             io.to(roomCode).emit('pass-update', {
                 passer: player.name,
                 passerPosition: player.position,
-                currentBidder: -1, // No next bidder
+                currentBidder: -1,
                 bidOptions: []
             });
 
@@ -343,7 +460,7 @@ io.on('connection', (socket) => {
             room.hands[highBidderPlayer.position] = room.hands[highBidderPlayer.position].concat(room.nest);
             game.sortHand(room.hands[highBidderPlayer.position]);
 
-            // Send nest cards to the winner (so they can see all 15 cards before choosing trump)
+            // Send nest cards to the winner
             const winnerSocket = io.sockets.sockets.get(room.highBidder);
             if (winnerSocket) {
                 winnerSocket.emit('receive-nest', {
@@ -352,7 +469,7 @@ io.on('connection', (socket) => {
                 console.log(`Sent nest cards to ${highBidderPlayer.name}. Hand now has ${room.hands[highBidderPlayer.position].length} cards.`);
             }
 
-            return; // Don't continue to next bidder
+            return;
         }
 
         // Move to next bidder
@@ -635,6 +752,16 @@ io.on('connection', (socket) => {
                             finalScores: room.teamScores
                         });
                         console.log(`*** GAME OVER! Team ${gameWinner} wins! ***`);
+                    } else {
+                        // No winner yet - start a new round after a delay
+                        console.log(`    Starting new round in 5 seconds...`);
+                        
+                        // Rotate the dealer for the next round
+                        room.dealer = (room.dealer + 1) % 4;
+                        
+                        setTimeout(() => {
+                            startNewRound(roomCode);
+                        }, 5000); // 5 second delay to read scores before new round
                     }
                 }, 2000);
 

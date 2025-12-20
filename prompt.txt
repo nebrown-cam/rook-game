@@ -36,7 +36,7 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
         ├── ROOK.png
         ├── CardBack1.png
         └── GreenFelt.jpg
-```
+
 
 ## GAME RULES
 - 4 players (2 teams), play to 500 points
@@ -53,13 +53,13 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
 - Winner of last trick gets the nest points
 
 ## UI LAYOUT
-- 3x3 grid layout
+- 3x3 grid layout with responsive scaling
 - Top row: Nest (left) | Partner (center) | Score box (right)
 - Middle row: Left player | Trick area | Right player
-- Bottom row: Empty (left) | Your hand (center) | Empty (right)
-- Controls overlay: Bid/Pass/Trump/Discard buttons positioned at very bottom of screen
+- Bottom row: Empty (left) | Your hand + Controls (center) | Empty (right)
 - Side players' cards rotated 90°/-90°
 - Trump label centered in trick area
+- Game container scales to fit browser window (transform: scale)
 
 ## CURRENT STATUS
 
@@ -113,17 +113,31 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
   - Declarer "set" if they don't make their bid (loses bid amount)
   - Game scores updated after each round
   - Win condition checked (first to 500)
+  - Score box correctly shows each player's team score
+- **Multi-round play:**
+  - 5-second pause after round complete to view scores
+  - Dealer rotates each round
+  - New round auto-starts with fresh deal
+  - All UI elements reset (nest, card backs, bid labels, trump display)
+  - Game scores persist between rounds
+  - `startNewRound()` helper function handles round reset
+- **Responsive UI:**
+  - Game container scales based on browser window size
+  - Transform origin set to top center for proper alignment
+  - Player cards are transparent (only card images show)
+  - Controls area positioned below player hand in grid flow
+  - Padding at top of game screen
 
-### 🔄 NEXT PHASE: Multi-round Play
-- Add "New Round" button or auto-start after round complete
-- Rotate dealer position
-- Reset all game state for new round
-- Handle game over screen properly
+### 🔄 NEXT PHASE: Polish & Edge Cases
+- Game over screen with play again option
+- Better visual feedback for round results
+- Handle edge cases (disconnection mid-game, etc.)
 
 ### ⏳ TODO (Future Enhancements)
 - Reconnection handling if someone disconnects mid-game
 - Game history/statistics
 - Mobile-responsive improvements
+- Sound effects
 
 ## KEY IMPLEMENTATION PATTERNS ESTABLISHED
 
@@ -135,8 +149,9 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
 
 ### State Management
 - Room state stored in `rooms` object on server
-- Each room tracks: players, hands, nest, bids, trump, scores, teamTricks, etc.
+- Each room tracks: players, hands, nest, bids, trump, scores, teamTricks, dealer, etc.
 - Client maintains local state: myHand, myPosition, selectedCards, trickPlayMode, isMyTurn, currentTrump
+- `startNewRound()` function resets round-specific state while preserving game scores
 
 ### Card Selection Modes
 - **Discard mode**: Multi-select (toggle selection, cards raise 15px, stored in selectedCards array)
@@ -147,6 +162,13 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
 - Team 0: Positions 0 and 2 (partners)
 - Team 1: Positions 1 and 3 (partners)
 - Relative positions calculated from player's perspective (you, partner, left, right)
+- Score box always shows "You & Partner" vs "Opponents" regardless of team number
+
+### Responsive Scaling
+- Base dimensions: 1200px × 800px
+- JavaScript calculates scale factor on window resize
+- CSS transform: scale() applied to #game-container
+- transform-origin: top center keeps game anchored at top
 
 ## SOCKET EVENTS IMPLEMENTED
 
@@ -163,6 +185,7 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
 - `room-update` - Player list updated
 - `error-message` - Error occurred
 - `game-started` - Game has begun, receive hand
+- `new-round` - New round starting, receive new hand and reset state
 - `bid-update` - Someone placed a bid
 - `pass-update` - Someone passed
 - `forced-bid` - Player was forced to bid minimum
@@ -196,6 +219,14 @@ rook-game/          # Local directory is C:\Users\nebro\Documents\rook-game
 - Main.js handles all client-side UI updates and user interactions
 - All card images are already in place in public/images/
 - Card hover effects are currently commented out in style.css
+- Cards sort in descending order (ROOK, 1, 14, 13, ... 5) - fixed in game.js sortHand()
+
+## HTML STRUCTURE NOTES
+- Game screen uses `#game-container` wrapper for scaling
+- Bottom center cell contains `.bottom-panel` which stacks:
+  - `.player-area.you` (your hand)
+  - `.controls-area` (bid/pass/trump/discard buttons)
+- This keeps controls in the grid flow rather than absolute positioned
 
 ---
 
@@ -204,6 +235,6 @@ When helping me, please:
 2. Keep code simple and well-commented
 3. Show me complete file contents when making updates
 4. Explain why you're making specific architectural choices
-5. Remember that we're at the **multi-round phase** - need to implement starting new rounds after one completes
+5. Remember that we're at the **polish phase** - multi-round play works, now focusing on edge cases and improvements
 
 ---

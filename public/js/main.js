@@ -1,3 +1,5 @@
+// main.js - Complete updated file
+
 // Connect to the Socket.io server
 const socket = io();
 
@@ -70,6 +72,72 @@ let selectedCards = [];
 // Trick play tracking
 let trickPlayMode = false;
 let isMyTurn = false;
+
+// ------------------------------------------------
+// RESPONSIVE SCALING - Improved Implementation
+// ------------------------------------------------
+
+const BASE_WIDTH = 1200;
+const BASE_HEIGHT = 1200;
+const MIN_SCALE = 0.4;  // Prevent game from becoming too small
+const MAX_SCALE = 1.2;  // Prevent excessive enlargement
+const VERTICAL_PADDING = 20;  // Padding at top and bottom (in pixels)
+
+let resizeTimeout = null;
+
+function scaleGame() {
+    const gameContainer = document.getElementById('game-container');
+    if (!gameContainer || gameScreen.classList.contains('hidden')) return;
+    
+    // Get available space (subtract padding from height)
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight - (VERTICAL_PADDING * 2);
+    
+    // Calculate scale to fit while maintaining aspect ratio
+    const scaleX = windowWidth / BASE_WIDTH;
+    const scaleY = windowHeight / BASE_HEIGHT;
+    
+    // Use the smaller scale to ensure it fits in both dimensions
+    let scale = Math.min(scaleX, scaleY);
+    
+    // Clamp scale to min/max bounds
+    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+    
+    // Apply the scale transform
+    gameContainer.style.transform = `scale(${scale})`;
+    
+    // Adjust container position to center properly after scaling
+    // This accounts for the fact that transform doesn't affect layout
+    const scaledWidth = BASE_WIDTH * scale;
+    const scaledHeight = BASE_HEIGHT * scale;
+    
+    gameContainer.style.left = `${(window.innerWidth - scaledWidth) / 2}px`;
+    gameContainer.style.top = `${VERTICAL_PADDING + (windowHeight - scaledHeight) / 2}px`;
+}
+
+// Debounced resize handler
+function handleResize() {
+    if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+    }
+    resizeTimeout = setTimeout(scaleGame, 100);
+}
+
+// Scale on window resize (debounced)
+window.addEventListener('resize', handleResize);
+
+// Initial scale when page loads
+window.addEventListener('load', scaleGame);
+
+// Use ResizeObserver for more reliable detection
+if (typeof ResizeObserver !== 'undefined') {
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(document.body);
+}
+
+// ------------------------------------------------
+// END RESPONSIVE SCALING
+// ------------------------------------------------
 
 // Join button click handler
 joinBtn.addEventListener('click', () => {
@@ -179,16 +247,9 @@ socket.on('game-started', (data) => {
     leftPlayerName.textContent = relativePositions.left.name;
     rightPlayerName.textContent = relativePositions.right.name;
 
-    // Update team names in score box based on position
-    // Positions 0,2 are Team 0; Positions 1,3 are Team 1
-    const myTeam = myPosition % 2;
-    if (myTeam === 0) {
-        teamHumanName.textContent = `${relativePositions.you.name} & ${relativePositions.partner.name}`;
-        teamAiName.textContent = `${relativePositions.left.name} & ${relativePositions.right.name}`;
-    } else {
-        teamHumanName.textContent = `${relativePositions.left.name} & ${relativePositions.right.name}`;
-        teamAiName.textContent = `${relativePositions.you.name} & ${relativePositions.partner.name}`;
-    }
+    // Update team names in score box
+    teamHumanName.textContent = `${relativePositions.you.name} & ${relativePositions.partner.name}`;
+    teamAiName.textContent = `${relativePositions.left.name} & ${relativePositions.right.name}`;
 
     // Clear bid labels
     partnerBid.textContent = '';
@@ -197,6 +258,9 @@ socket.on('game-started', (data) => {
 
     // Clear trick area
     clearTrickArea();
+
+    // Reset trump display
+    trumpSuit.textContent = 'None';
 
     // Render the nest
     renderNest(nest);
@@ -212,8 +276,99 @@ socket.on('game-started', (data) => {
     // Populate bid dropdown
     populateBidOptions(bidOptions);
 
+    // Reset control states
+    trumpSelect.disabled = true;
+    trumpBtn.disabled = true;
+    discardBtn.disabled = true;
+
     // Update bidding UI
     updateBiddingUI(currentBidder, currentBid);
+
+    // Scale the game after DOM updates
+    requestAnimationFrame(scaleGame);
+});
+
+// Handle new round (after first round)
+socket.on('new-round', (data) => {
+    const { hand, position, players, nest, bidOptions, currentBidder, currentBid, dealer, teamScores, gameConfig: config } = data;
+
+    console.log(`New round starting! Dealer is position ${dealer}`);
+
+    myHand = hand;
+    myPosition = position;
+    gameConfig = config;
+    currentBidAmount = currentBid;
+
+    // Reset all mode states
+    discardMode = false;
+    selectedCards = [];
+    trickPlayMode = false;
+    isMyTurn = false;
+    currentTrump = null;
+
+    // Update relative positions (in case needed)
+    relativePositions = getRelativePositions(position, players);
+
+    // Clear bid labels
+    partnerBid.textContent = '';
+    leftPlayerBid.textContent = '';
+    rightPlayerBid.textContent = '';
+
+    // Clear trick area
+    clearTrickArea();
+
+    // Reset trump display
+    trumpSuit.textContent = 'None';
+
+    // Remove any turn indicators
+    yourName.classList.remove('current-turn');
+    partnerName.classList.remove('current-turn');
+    leftPlayerName.classList.remove('current-turn');
+    rightPlayerName.classList.remove('current-turn');
+
+    // Update scores display - my team's score goes in "You & Partner" row
+    const myTeam = myPosition % 2;
+    teamHumanScore.textContent = teamScores[myTeam];
+    teamAiScore.textContent = teamScores[1 - myTeam];
+
+    // Render the nest
+    renderNest(nest);
+
+    // Render your hand
+    renderHand();
+
+    // Render other players' card backs (all back to 10)
+    renderCardBacks(partnerCards, 10, 'horizontal');
+    renderCardBacks(leftPlayerCards, 10, 'vertical');
+    renderCardBacks(rightPlayerCards, 10, 'vertical');
+
+    // Populate bid dropdown
+    populateBidOptions(bidOptions);
+
+    // Reset control states
+    trumpSelect.disabled = true;
+    trumpBtn.disabled = true;
+    discardBtn.disabled = true;
+    bidSelect.disabled = false;
+
+    // Update bidding UI
+    updateBiddingUI(currentBidder, currentBid);
+
+    // Show new round message
+    const dealerName = getPlayerNameByPosition(dealer);
+    helpBidValue.textContent = `New round! ${dealerName} dealt.`;
+    
+    // After a moment, switch to normal bidding message
+    setTimeout(() => {
+        if (currentBidder === myPosition) {
+            helpBidValue.textContent = 'Opening bid:';
+        } else {
+            helpBidValue.textContent = `Waiting for ${getPlayerNameByPosition(currentBidder)} to bid...`;
+        }
+    }, 2000);
+
+    // Scale the game after DOM updates
+    requestAnimationFrame(scaleGame);
 });
 
 // Calculate relative positions (who is partner, left, right)
@@ -234,9 +389,12 @@ function getRelativePositions(myPos, players) {
 function renderNest(nest) {
     nestCards.innerHTML = '';
 
-    // Keep these consistent with your CSS card sizes
-    const CARD_W = 80;
-    const OVERLAP = 10;
+    // Match the CSS variable --card-overlap-nest (12px)
+    const OVERLAP = 12;
+
+    // Get card width from CSS variable, fallback to 100
+    const CARD_W = parseInt(getComputedStyle(document.documentElement)
+        .getPropertyValue('--card-width')) || 100;
 
     // Make the container wide enough for however many cards are in the nest
     const count = nest.count ?? 0;
@@ -621,7 +779,6 @@ socket.on('trump-selected', (data) => {
 
     // Update trump display
     trumpSuit.textContent = trump;
-    // trumpSuit.style.color = getTrumpColor(trump); // Optional: color the trump text
 
     // Disable trump controls for everyone
     trumpSelect.disabled = true;
@@ -677,6 +834,9 @@ socket.on('hand-updated', (data) => {
 
     // Replace hand with the updated 10-card hand
     myHand = hand;
+
+    // Re-sort with current trump so ROOK is in correct position
+    sortHandLocally(myHand, currentTrump);
 
     // Re-render hand
     renderHand();
@@ -745,8 +905,6 @@ socket.on('trick-complete', (data) => {
 
     // Show who won
     helpBidValue.textContent = `${winnerName} wins trick ${trickNumber}!`;
-
-    // Briefly highlight winner (the trick cards will be cleared by next-trick event)
 });
 
 // Handle next trick starting
@@ -780,29 +938,22 @@ socket.on('round-complete', (data) => {
     // Clear trick area
     clearTrickArea();
 
-    // Update score display
+    // Update score display - my team's score goes in "You & Partner" row
     const myTeam = myPosition % 2;
-    if (myTeam === 0) {
-        teamHumanScore.textContent = teamScores[0];
-        teamAiScore.textContent = teamScores[1];
-    } else {
-        teamHumanScore.textContent = teamScores[1];
-        teamAiScore.textContent = teamScores[0];
-    }
+    teamHumanScore.textContent = teamScores[myTeam];
+    teamAiScore.textContent = teamScores[1 - myTeam];
 
     // Show round summary
     const declarerName = getPlayerNameByPosition(highBidderPosition);
     if (madeContract) {
-        helpBidValue.textContent = `${declarerName} made ${bid}! Round complete.`;
+        helpBidValue.textContent = `${declarerName} made ${bid}! Next round in 5 seconds...`;
     } else {
-        helpBidValue.textContent = `${declarerName} was SET on ${bid}! Round complete.`;
+        helpBidValue.textContent = `${declarerName} was SET on ${bid}! Next round in 5 seconds...`;
     }
 
     // Exit trick play mode
     trickPlayMode = false;
     isMyTurn = false;
-
-    // TODO: Add "Next Round" button or auto-start next round
 });
 
 // Handle game over
@@ -914,16 +1065,15 @@ function getTrumpColor(trump) {
 }
 
 // Sort hand locally - descending order within each suit
-// Order: ROOK (if trump), 1, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5
 function sortHandLocally(hand, trump = null) {
-    const baseColorOrder = { 'Black': 0, 'Green': 1, 'Red': 2, 'Yellow': 3 };
+    const baseColorOrder = { 'Black': 0, 'Green': 1, 'Red': 2, 'Yellow': 3, 'Rook': 4 };
 
     hand.sort((a, b) => {
         // Determine effective color for each card
-        // ROOK takes on trump color if trump is set
         let aColor = a.color;
         let bColor = b.color;
         
+        // If trump is set, ROOK sorts with trump suit
         if (a.color === 'Rook' && trump) {
             aColor = trump;
         }
@@ -962,8 +1112,9 @@ function renderNestEmpty() {
 function renderNestFaceDown(count) {
     nestCards.innerHTML = '';
 
-    const CARD_W = 80;
-    const OVERLAP = 10;
+    const OVERLAP = 12;
+    const CARD_W = parseInt(getComputedStyle(document.documentElement)
+        .getPropertyValue('--card-width')) || 100;
 
     nestCards.style.width = count > 0 ? `${CARD_W + OVERLAP * (count - 1)}px` : `${CARD_W}px`;
 
