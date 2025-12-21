@@ -623,6 +623,15 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Check if this player has already contributed a card to the current trick.
+        // This prevents double-playing if the player wins the trick and clicks again 
+        // before the table clears. It should prevent any double-playing by screen touching on laptops
+        const alreadyPlayed = room.trick.some(play => play.playerPosition === player.position);
+        if (alreadyPlayed) {
+            // Silently return or send error (optional)
+            return; 
+        }
+
         // Get the player's hand
         const playerHand = room.hands[player.position];
 
@@ -643,6 +652,9 @@ io.on('connection', (socket) => {
             socket.emit('error-message', 'You must follow suit if able.');
             return;
         }
+        
+        // Prevent double-playing
+        if (room.trick.length === 4) return;  
 
         // Remove card from player's hand
         room.hands[player.position].splice(cardIndex, 1);
