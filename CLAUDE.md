@@ -62,27 +62,6 @@ Main client-side JavaScript file that handles:
 - **UI updates and rendering**
 - **Player interaction handling**
 
-**Key Functions:**
-- `populateBidOptions(options)` - Updates bid dropdown (lines 515-533)
-  - Sets dropdown to blank when no bids available (after bidding complete)
-  - Clears dropdown for players who pass
-- `updateBiddingUI(currentBidder, currentBid)` - Updates bid controls (lines 536-553)
-- `renderHand()` - Renders player's cards (lines 428-450)
-- `handleCardClick(index)` - Routes card clicks to discard or play mode (lines 453-460)
-- `displayCardInTrick(card, playerPosition)` - Shows played cards (lines 977-996)
-- `sortHandLocally(hand, trump)` - Sorts cards by suit and value (lines 1068-1100)
-- `scaleGame()` - Responsive scaling for different screen sizes (lines 88-116)
-
-**Socket Event Handlers:**
-- `game-started` - Initial deal
-- `bid-update` / `pass-update` - Bidding phase
-- `trump-selected` - Trump suit chosen
-- `discard-complete` - Declarer discarded 5 cards
-- `card-played` - Player played a card
-- `trick-complete` - Trick winner determined
-- `round-complete` - Round scoring
-- `game-over` - Final results
-
 #### `public/css/style.css`
 - Game layout and card positioning
 - Responsive design with CSS variables
@@ -131,14 +110,3 @@ node server.js
 http://localhost:3000
 ```
 
-## Recent Changes
-
-- Bid dropdown shows blank instead of "No bids available" after bidding complete
-- Bid dropdown cleared when player clicks Pass button
-
-## Development Notes
-
-- Game uses responsive scaling based on window size (BASE_WIDTH: 1200, BASE_HEIGHT: 1200)
-- Cards are positioned using CSS absolute positioning with transform scaling
-- Socket.io handles all real-time game state synchronization
-- Client maintains local game state (myHand, myPosition, currentTrump, etc.)
