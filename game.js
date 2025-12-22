@@ -68,11 +68,14 @@ function createDeck() {
     return deck;
 }
 
-// Shuffle an array in place (Fisher-Yates algorithm)
+// Shuffle an array in place (Fisher-Yates algorithm, repeated 7 times)
 function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+    // Perform 7 complete shuffles for thorough randomization
+    for (let shuffleCount = 0; shuffleCount < 7; shuffleCount++) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
     }
     return array;
 }

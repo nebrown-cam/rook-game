@@ -129,12 +129,6 @@ window.addEventListener('resize', handleResize);
 // Initial scale when page loads
 window.addEventListener('load', scaleGame);
 
-// Use ResizeObserver for more reliable detection
-if (typeof ResizeObserver !== 'undefined') {
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(document.body);
-}
-
 // ------------------------------------------------
 // END RESPONSIVE SCALING
 // ------------------------------------------------
@@ -242,8 +236,8 @@ socket.on('game-started', (data) => {
 
     // Set up player names based on position
     relativePositions = getRelativePositions(position, players);
-    yourName.textContent = relativePositions.you.name + ' (You)';
-    partnerName.textContent = relativePositions.partner.name + ' (Partner)';
+    yourName.textContent = relativePositions.you.name;
+    partnerName.textContent = relativePositions.partner.name;
     leftPlayerName.textContent = relativePositions.left.name;
     rightPlayerName.textContent = relativePositions.right.name;
 
@@ -363,7 +357,7 @@ socket.on('new-round', (data) => {
         if (currentBidder === myPosition) {
             helpBidValue.textContent = 'Opening bid:';
         } else {
-            helpBidValue.textContent = `Waiting for ${getPlayerNameByPosition(currentBidder)} to bid...`;
+            helpBidValue.textContent = `Waiting for ${getPlayerNameByPosition(currentBidder)} ...`;
         }
     }, 2000);
 
@@ -483,7 +477,7 @@ function updateDiscardButtonState() {
     
     if (count === 5) {
         discardBtn.disabled = false;
-        helpBidValue.textContent = `5 cards selected. Click Discard to continue.`;
+        helpBidValue.textContent = `Click Discard to continue.`;
     } else {
         discardBtn.disabled = true;
         helpBidValue.textContent = `Select 5 cards to discard (${count} selected)`;
@@ -712,7 +706,7 @@ socket.on('forced-bid', (data) => {
             rightPlayerBid.textContent = `Forced bid: ${bidAmount}`;
         } else if (bidderPosition === myPosition) {
             // I was forced to bid
-            helpBidValue.textContent = `You were forced to bid ${bidAmount}`;
+            helpBidValue.textContent = `Forced to bid ${bidAmount}`;
         }
     }
 });
@@ -735,6 +729,9 @@ socket.on('bidding-complete', (data) => {
 
     // Show winner message
     helpBidValue.textContent = `${winner} won with ${winningBid}`;
+
+    // Hide nest for all players once bid is won
+    nestCards.innerHTML = '';
 
     // If I'm NOT the winner, keep trump controls disabled
     if (winnerPosition !== myPosition) {
@@ -763,7 +760,7 @@ socket.on('receive-nest', (data) => {
     renderNestEmpty();
 
     // Update help text
-    helpBidValue.textContent = 'Review your cards, then select trump';
+    helpBidValue.textContent = 'Select trump color';
 
     // Enable trump selection
     trumpSelect.disabled = false;
@@ -821,7 +818,7 @@ socket.on('discard-complete', (data) => {
     renderNestFaceDown(5);
 
     // Update help text
-    helpBidValue.textContent = `${declarer} leads the first trick.`;
+    helpBidValue.textContent = `${declarer} leads first trick.`;
 });
 
 // Handle updated hand after discard (only declarer receives this)
@@ -844,9 +841,19 @@ socket.on('hand-updated', (data) => {
     renderHand();
 });
 
+// Handle auto-play starting
+socket.on('auto-play-start', (data) => {
+    const { playerName, playerPosition } = data;
+
+    console.log(`Auto-play starting for ${playerName}`);
+
+    // Show auto-play message to all players
+    helpBidValue.textContent = 'Auto-play';
+});
+
 // Handle trick play starting
 socket.on('trick-play-start', (data) => {
-    const { currentPlayer, trickNumber } = data;
+    const { currentPlayer, trickNumber, playerPoints } = data;
 
     console.log(`Trick play starting! Trick ${trickNumber}, current player: ${currentPlayer}`);
 
@@ -854,11 +861,18 @@ socket.on('trick-play-start', (data) => {
     trickPlayMode = true;
     isMyTurn = (currentPlayer === myPosition);
 
+    // Initialize bid-labels to show "0 pts" for other players (not yourself)
+    if (relativePositions) {
+        partnerBid.textContent = '0 pts';
+        leftPlayerBid.textContent = '0 pts';
+        rightPlayerBid.textContent = '0 pts';
+    }
+
     // Update UI
     updateTurnIndicator(currentPlayer);
-    
+
     if (isMyTurn) {
-        helpBidValue.textContent = 'Your turn - click a card to play';
+        helpBidValue.textContent = 'Your turn...';
     } else {
         const playerName = getPlayerNameByPosition(currentPlayer);
         helpBidValue.textContent = `${playerName}'s turn`;
@@ -892,7 +906,7 @@ socket.on('turn-update', (data) => {
     updateTurnIndicator(currentPlayer);
 
     if (isMyTurn) {
-        helpBidValue.textContent = 'Your turn - click a card to play';
+        helpBidValue.textContent = 'Your turn...';
     } else {
         const playerName = getPlayerNameByPosition(currentPlayer);
         helpBidValue.textContent = `${playerName}'s turn`;
@@ -901,9 +915,14 @@ socket.on('turn-update', (data) => {
 
 // Handle trick complete
 socket.on('trick-complete', (data) => {
-    const { winnerPosition, winnerName, winningTeam, trickNumber, isLastTrick, nextPlayer } = data;
+    const { winnerPosition, winnerName, winningTeam, trickNumber, isLastTrick, nextPlayer, playerPoints } = data;
 
     console.log(`Trick ${trickNumber} complete! Winner: ${winnerName} (Team ${winningTeam})`);
+
+    // Update player points display (for other players, not yourself)
+    if (relativePositions && playerPoints) {
+        updatePlayerPointsDisplay(playerPoints);
+    }
 
     // Show who won
     helpBidValue.textContent = `${winnerName} wins trick ${trickNumber}!`;
@@ -948,9 +967,9 @@ socket.on('round-complete', (data) => {
     // Show round summary
     const declarerName = getPlayerNameByPosition(highBidderPosition);
     if (madeContract) {
-        helpBidValue.textContent = `${declarerName} made ${bid}! Next round in 5 seconds...`;
+        helpBidValue.textContent = `${declarerName} made ${bid}!`;
     } else {
-        helpBidValue.textContent = `${declarerName} was SET on ${bid}! Next round in 5 seconds...`;
+        helpBidValue.textContent = `${declarerName} was SET on ${bid}!`;
     }
 
     // Exit trick play mode
@@ -958,9 +977,19 @@ socket.on('round-complete', (data) => {
     isMyTurn = false;
 });
 
+// Handle game restarting (when host chooses to play again)
+socket.on('game-restarting', () => {
+    console.log('Game is restarting...');
+    helpBidValue.textContent = 'Starting new game...';
+
+    // Reset scores display
+    teamHumanScore.textContent = '0';
+    teamAiScore.textContent = '0';
+});
+
 // Handle game over
 socket.on('game-over', (data) => {
-    const { winningTeam, finalScores } = data;
+    const { winningTeam, finalScores, isHost } = data;
 
     console.log(`Game over! Team ${winningTeam} wins with ${finalScores[winningTeam]} points`);
 
@@ -968,11 +997,28 @@ socket.on('game-over', (data) => {
     if (winningTeam === myTeam) {
         helpBidValue.textContent = `🎉 YOU WIN! Final: ${finalScores[myTeam]} - ${finalScores[1-myTeam]}`;
     } else {
-        helpBidValue.textContent = `Game Over. You lose. Final: ${finalScores[myTeam]} - ${finalScores[1-myTeam]}`;
+        helpBidValue.textContent = `You lose. Final: ${finalScores[myTeam]} - ${finalScores[1-myTeam]}`;
     }
 
     trickPlayMode = false;
     isMyTurn = false;
+
+    // Show different messages based on host status
+    if (isHost) {
+        // Host sees confirm dialog
+        setTimeout(() => {
+            const playAgain = confirm('Play another game?');
+            if (playAgain) {
+                socket.emit('restart-game');
+                helpBidValue.textContent = 'Starting new game...';
+            }
+        }, 2000); // Small delay so they can see the final score first
+    } else {
+        // Non-host sees waiting message
+        setTimeout(() => {
+            helpBidValue.textContent = `Game Over. Final: ${finalScores[myTeam]} - ${finalScores[1-myTeam]}. Waiting for host...`;
+        }, 2000);
+    }
 });
 
 // Helper: Display a card in the trick area
@@ -1036,6 +1082,21 @@ function getPlayerNameByPosition(position) {
     } else {
         return relativePositions.right.name;
     }
+}
+
+// Helper: Update player points display in bid-labels
+function updatePlayerPointsDisplay(playerPoints) {
+    // Update partner's points
+    const partnerPoints = playerPoints[relativePositions.partner.position];
+    partnerBid.textContent = `Points: ${partnerPoints}`;
+
+    // Update left player's points
+    const leftPoints = playerPoints[relativePositions.left.position];
+    leftPlayerBid.textContent = `Points: ${leftPoints}`;
+
+    // Update right player's points
+    const rightPoints = playerPoints[relativePositions.right.position];
+    rightPlayerBid.textContent = `Points: ${rightPoints}`;
 }
 
 // Helper: Update opponent card count after they play

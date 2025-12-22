@@ -25,6 +25,295 @@ app.use(express.static(path.join(__dirname, 'public'), {
 // Store active game rooms
 const rooms = {};
 
+// Helper function to check if a player should auto-play remaining cards
+function checkAutoPlayConditions(room, playerPosition) {
+    // Condition 1: Player won the bid
+    if (room.highBidderPosition !== playerPosition) {
+        return false;
+    }
+
+    // Condition 2: Player leads the trick (is first to play)
+    if (room.trick.length !== 0) {
+        return false;
+    }
+
+    // Condition 3: Player only has trump cards left
+    const playerHand = room.hands[playerPosition];
+    const allTrump = playerHand.every(card =>
+        card.color === room.trump || card.color === 'Rook'
+    );
+    if (!allTrump) {
+        return false;
+    }
+
+    // Condition 4: Opponents have no trump cards
+    for (let i = 0; i < 4; i++) {
+        if (i === playerPosition) continue; // Skip the current player
+
+        const opponentHand = room.hands[i];
+        const hasTrump = opponentHand.some(card =>
+            card.color === room.trump || card.color === 'Rook'
+        );
+        if (hasTrump) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Helper function to get the lowest card from a hand
+function getLowestCard(hand) {
+    if (hand.length === 0) return null;
+
+    // Sort by point value first (lowest points), then by number (lowest number)
+    let lowestCard = hand[0];
+    for (const card of hand) {
+        if (card.points < lowestCard.points) {
+            lowestCard = card;
+        } else if (card.points === lowestCard.points && card.number < lowestCard.number) {
+            lowestCard = card;
+        }
+    }
+    return lowestCard;
+}
+
+// Helper function to auto-play remaining cards for ALL players
+function autoPlayCards(roomCode, bidWinnerPosition) {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    const bidWinner = room.players.find(p => p.position === bidWinnerPosition);
+    if (!bidWinner) return;
+
+    console.log(`*** AUTO-PLAYING all remaining cards in room ${roomCode} ***`);
+
+    // Mark that auto-play is active
+    room.autoPlayActive = true;
+
+    // Notify all players that auto-play is starting
+    io.to(roomCode).emit('auto-play-start', {
+        playerName: bidWinner.name,
+        playerPosition: bidWinnerPosition
+    });
+
+    // Play next card for current player
+    function playNextCard() {
+        const room = rooms[roomCode];
+        if (!room || !room.autoPlayActive) return;
+
+        const currentPlayerPos = room.currentPlayer;
+        const currentPlayer = room.players.find(p => p.position === currentPlayerPos);
+        if (!currentPlayer) return;
+
+        const playerHand = room.hands[currentPlayerPos];
+
+        // Check if player has cards
+        if (playerHand.length === 0) {
+            console.log(`AUTO-PLAY: ${currentPlayer.name} has no cards left`);
+            return;
+        }
+
+        // Select card to play
+        let card, cardIndex;
+        if (currentPlayerPos === bidWinnerPosition) {
+            // Bid winner plays first card (trump)
+            card = playerHand[0];
+            cardIndex = 0;
+        } else {
+            // Opponents play lowest card
+            card = getLowestCard(playerHand);
+            cardIndex = playerHand.findIndex(c => c.id === card.id);
+        }
+
+        // Remove card from hand
+        room.hands[currentPlayerPos].splice(cardIndex, 1);
+
+        // Set led color if first card
+        if (room.trick.length === 0) {
+            room.ledColor = card.color === 'Rook' ? room.trump : card.color;
+        }
+
+        // Add card to trick
+        room.trick.push({
+            card: card,
+            playerPosition: currentPlayerPos,
+            playerName: currentPlayer.name
+        });
+
+        console.log(`AUTO-PLAY: ${currentPlayer.name} played ${card.color} ${card.number}`);
+
+        // Broadcast the played card
+        io.to(roomCode).emit('card-played', {
+            card: card,
+            playerPosition: currentPlayerPos,
+            playerName: currentPlayer.name,
+            cardsInTrick: room.trick.length
+        });
+
+        // Check if trick is complete
+        if (room.trick.length === 4) {
+            // Determine the winner
+            const winnerPosition = game.getTrickWinner(room.trick, room.trump, room.ledColor);
+            const winner = room.players.find(p => p.position === winnerPosition);
+            const winningTeam = winnerPosition % 2;
+
+            // Calculate points in this trick
+            const trickPoints = game.calculatePoints(room.trick.map(t => t.card));
+
+            // Add trick points to winner's individual points
+            room.playerPoints[winnerPosition] += trickPoints;
+
+            // Add trick cards to winning team's pile
+            room.trick.forEach(t => {
+                room.teamTricks[winningTeam].push(t.card);
+            });
+
+            room.tricksPlayed++;
+
+            console.log(`*** Trick ${room.tricksPlayed} won by ${winner.name} (Team ${winningTeam}) - ${trickPoints} points ***`);
+
+            // Check if this was the last trick
+            if (room.tricksPlayed === 10) {
+                room.autoPlayActive = false;
+
+                // Add nest to the winning team's cards
+                room.nest.forEach(c => {
+                    room.teamTricks[winningTeam].push(c);
+                });
+
+                console.log(`*** Last trick! Team ${winningTeam} gets the nest ***`);
+
+                // Calculate round scores
+                const team0Points = game.calculatePoints(room.teamTricks[0]);
+                const team1Points = game.calculatePoints(room.teamTricks[1]);
+
+                console.log(`    Team 0 points: ${team0Points}, Team 1 points: ${team1Points}`);
+
+                // Determine if declarer made their bid
+                const declarerTeam = room.highBidderPosition % 2;
+                const declarerPoints = declarerTeam === 0 ? team0Points : team1Points;
+                const madeContract = declarerPoints >= room.currentBid;
+
+                // Update game scores
+                if (madeContract) {
+                    room.teamScores[declarerTeam] += declarerPoints;
+                    room.teamScores[1 - declarerTeam] += (declarerTeam === 0 ? team1Points : team0Points);
+                } else {
+                    room.teamScores[declarerTeam] -= room.currentBid;
+                    room.teamScores[1 - declarerTeam] += (declarerTeam === 0 ? team1Points : team0Points);
+                }
+
+                console.log(`    Declarer team ${declarerTeam} ${madeContract ? 'MADE' : 'SET'} (needed ${room.currentBid}, got ${declarerPoints})`);
+                console.log(`    Game scores: Team 0 = ${room.teamScores[0]}, Team 1 = ${room.teamScores[1]}`);
+
+                // Notify all players of trick completion
+                io.to(roomCode).emit('trick-complete', {
+                    winnerPosition: winnerPosition,
+                    winnerName: winner.name,
+                    winningTeam: winningTeam,
+                    trickNumber: room.tricksPlayed,
+                    isLastTrick: true,
+                    playerPoints: room.playerPoints
+                });
+
+                // Small delay then send round complete
+                setTimeout(() => {
+                    io.to(roomCode).emit('round-complete', {
+                        team0Points: team0Points,
+                        team1Points: team1Points,
+                        declarerTeam: declarerTeam,
+                        bid: room.currentBid,
+                        madeContract: madeContract,
+                        teamScores: room.teamScores,
+                        highBidderPosition: room.highBidderPosition
+                    });
+
+                    // Check for game winner
+                    if (room.teamScores[0] >= 500 || room.teamScores[1] >= 500) {
+                        const gameWinner = room.teamScores[0] >= 500 ? 0 : 1;
+
+                        // Send game-over to each player with their host status
+                        room.players.forEach((player) => {
+                            const playerSocket = io.sockets.sockets.get(player.id);
+                            if (playerSocket) {
+                                playerSocket.emit('game-over', {
+                                    winningTeam: gameWinner,
+                                    finalScores: room.teamScores,
+                                    isHost: player.id === room.host
+                                });
+                            }
+                        });
+
+                        console.log(`*** GAME OVER! Team ${gameWinner} wins! ***`);
+                    } else {
+                        // No winner yet - start a new round after a delay
+                        console.log(`    Starting new round in 5 seconds...`);
+
+                        // Rotate the dealer for the next round
+                        room.dealer = (room.dealer + 1) % 4;
+
+                        setTimeout(() => {
+                            startNewRound(roomCode);
+                        }, 5000);
+                    }
+                }, 2000);
+
+            } else {
+                // More tricks to play - winner leads next trick
+                room.currentPlayer = winnerPosition;
+                room.trickLeader = winnerPosition;
+
+                // Notify all players of trick completion
+                io.to(roomCode).emit('trick-complete', {
+                    winnerPosition: winnerPosition,
+                    winnerName: winner.name,
+                    winningTeam: winningTeam,
+                    trickNumber: room.tricksPlayed,
+                    isLastTrick: false,
+                    nextPlayer: room.currentPlayer,
+                    playerPoints: room.playerPoints
+                });
+
+                // Clear trick and continue auto-playing after delay
+                setTimeout(() => {
+                    room.trick = [];
+                    room.ledColor = null;
+
+                    // Emit next-trick
+                    io.to(roomCode).emit('next-trick', {
+                        currentPlayer: room.currentPlayer,
+                        trickNumber: room.tricksPlayed + 1
+                    });
+
+                    // Continue auto-playing after a short delay
+                    setTimeout(() => {
+                        playNextCard();
+                    }, 500);
+                }, 2000);
+            }
+        } else {
+            // Move to next player
+            room.currentPlayer = (room.currentPlayer + 1) % 4;
+
+            // Notify all players whose turn it is
+            io.to(roomCode).emit('turn-update', {
+                currentPlayer: room.currentPlayer
+            });
+
+            // Continue auto-playing next player's card after delay
+            setTimeout(() => {
+                playNextCard();
+            }, 500);
+        }
+    }
+
+    // Start playing cards
+    setTimeout(() => {
+        playNextCard();
+    }, 500);
+}
+
 // Helper function to start a new round (used for initial start and subsequent rounds)
 function startNewRound(roomCode) {
     const room = rooms[roomCode];
@@ -51,6 +340,7 @@ function startNewRound(roomCode) {
     room.ledColor = null;
     room.tricksPlayed = 0;
     room.teamTricks = [[], []];
+    room.playerPoints = [0, 0, 0, 0]; // Individual player points during trick-taking
     room.currentPlayer = 0;
     room.trickLeader = 0;
 
@@ -125,6 +415,7 @@ io.on('connection', (socket) => {
                 ledColor: null,
                 tricksPlayed: 0,
                 teamTricks: [[], []], // Cards won by each team (for scoring)
+                playerPoints: [0, 0, 0, 0], // Individual player points during trick-taking
                 teamScores: [0, 0],   // Running game scores
                 biddingComplete: false,
                 trumpSelected: false,
@@ -209,6 +500,7 @@ io.on('connection', (socket) => {
         room.ledColor = null;
         room.tricksPlayed = 0;
         room.teamTricks = [[], []];
+        room.playerPoints = [0, 0, 0, 0]; // Individual player points during trick-taking
 
         // Reset player passed flags
         room.players.forEach(p => p.hasPassed = false);
@@ -595,14 +887,23 @@ io.on('connection', (socket) => {
         room.trickLeader = room.highBidderPosition;
         room.trick = [];
         room.ledColor = null;
+        room.playerPoints = [0, 0, 0, 0]; // Reset individual player points for this round
 
         console.log(`    ${player.name} will lead the first trick`);
 
         // Notify all players that trick play is starting
         io.to(roomCode).emit('trick-play-start', {
             currentPlayer: room.currentPlayer,
-            trickNumber: 1
+            trickNumber: 1,
+            playerPoints: room.playerPoints
         });
+
+        // Check if auto-play conditions are met
+        if (checkAutoPlayConditions(room, room.currentPlayer)) {
+            setTimeout(() => {
+                autoPlayCards(roomCode, room.currentPlayer);
+            }, 1000); // Small delay to let UI update
+        }
     });
 
     // Handle playing a card
@@ -690,6 +991,12 @@ io.on('connection', (socket) => {
             // Determine which team won (positions 0,2 = team 0; positions 1,3 = team 1)
             const winningTeam = winnerPosition % 2;
 
+            // Calculate points in this trick
+            const trickPoints = game.calculatePoints(room.trick.map(t => t.card));
+
+            // Add trick points to winner's individual points
+            room.playerPoints[winnerPosition] += trickPoints;
+
             // Add trick cards to winning team's pile
             room.trick.forEach(t => {
                 room.teamTricks[winningTeam].push(t.card);
@@ -697,7 +1004,7 @@ io.on('connection', (socket) => {
 
             room.tricksPlayed++;
 
-            console.log(`*** Trick ${room.tricksPlayed} won by ${winner.name} (Team ${winningTeam}) ***`);
+            console.log(`*** Trick ${room.tricksPlayed} won by ${winner.name} (Team ${winningTeam}) - ${trickPoints} points ***`);
 
             // Check if this was the last trick
             if (room.tricksPlayed === 10) {
@@ -741,7 +1048,8 @@ io.on('connection', (socket) => {
                     winnerName: winner.name,
                     winningTeam: winningTeam,
                     trickNumber: room.tricksPlayed,
-                    isLastTrick: true
+                    isLastTrick: true,
+                    playerPoints: room.playerPoints
                 });
 
                 // Small delay then send round complete
@@ -759,10 +1067,19 @@ io.on('connection', (socket) => {
                     // Check for game winner
                     if (room.teamScores[0] >= 500 || room.teamScores[1] >= 500) {
                         const gameWinner = room.teamScores[0] >= 500 ? 0 : 1;
-                        io.to(roomCode).emit('game-over', {
-                            winningTeam: gameWinner,
-                            finalScores: room.teamScores
+
+                        // Send game-over to each player with their host status
+                        room.players.forEach((player) => {
+                            const playerSocket = io.sockets.sockets.get(player.id);
+                            if (playerSocket) {
+                                playerSocket.emit('game-over', {
+                                    winningTeam: gameWinner,
+                                    finalScores: room.teamScores,
+                                    isHost: player.id === room.host
+                                });
+                            }
                         });
+
                         console.log(`*** GAME OVER! Team ${gameWinner} wins! ***`);
                     } else {
                         // No winner yet - start a new round after a delay
@@ -789,7 +1106,8 @@ io.on('connection', (socket) => {
                     winningTeam: winningTeam,
                     trickNumber: room.tricksPlayed,
                     isLastTrick: false,
-                    nextPlayer: room.currentPlayer
+                    nextPlayer: room.currentPlayer,
+                    playerPoints: room.playerPoints
                 });
 
                 // Clear trick for next round (after brief delay for clients to see result)
@@ -802,6 +1120,13 @@ io.on('connection', (socket) => {
                         currentPlayer: room.currentPlayer,
                         trickNumber: room.tricksPlayed + 1
                     });
+
+                    // Check if auto-play conditions are met
+                    if (checkAutoPlayConditions(room, room.currentPlayer)) {
+                        setTimeout(() => {
+                            autoPlayCards(roomCode, room.currentPlayer);
+                        }, 1000); // Small delay to let UI update
+                    }
                 }, 2000); // 2 second delay to see the completed trick
             }
         } else {
@@ -813,6 +1138,32 @@ io.on('connection', (socket) => {
                 currentPlayer: room.currentPlayer
             });
         }
+    });
+
+    // Handle restart game (host only, after game over)
+    socket.on('restart-game', () => {
+        const roomCode = socket.roomCode;
+        const room = rooms[roomCode];
+
+        if (!room) return;
+
+        // Verify this is the host
+        if (socket.id !== room.host) {
+            socket.emit('error-message', 'Only the host can restart the game.');
+            return;
+        }
+
+        console.log(`*** Host is restarting game in room ${roomCode} ***`);
+
+        // Reset game state
+        room.teamScores = [0, 0];
+        room.dealer = 0;
+
+        // Notify all players that game is restarting
+        io.to(roomCode).emit('game-restarting');
+
+        // Start a new round immediately
+        startNewRound(roomCode);
     });
 
     // Handle disconnection

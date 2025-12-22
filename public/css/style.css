@@ -198,7 +198,7 @@ button:disabled {
 
 .game-grid {
     display: grid;
-    grid-template-columns: 280px 1fr 280px;
+    grid-template-columns: 280px 640px 280px;
     grid-template-rows: 200px 1fr 320px;
     height: 100%;
     width: 100%;
@@ -552,6 +552,7 @@ button:disabled {
     display: flex;
     justify-content: space-between;
     margin-bottom: 5px;
+    gap: 10px;
 }
 
 .team-name {
@@ -597,12 +598,20 @@ button:disabled {
     min-width: 60px;
 }
 
+#trump-select {
+    min-width: 70px;
+}
+
 .help-bid {
     font-family: Arial, sans-serif;
     font-size: 14px;
     font-weight: bold;
     color: white;
     margin-right: 5px;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Override button styles for controls */
