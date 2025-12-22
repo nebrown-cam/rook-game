@@ -516,10 +516,6 @@ function populateBidOptions(options) {
     bidSelect.innerHTML = '';
 
     if (options.length === 0) {
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'No bids available';
-        bidSelect.appendChild(option);
         bidSelect.disabled = true;
     } else {
         options.forEach(bid => {
@@ -689,6 +685,12 @@ socket.on('pass-update', (data) => {
 
     // Update bid options dropdown
     populateBidOptions(bidOptions);
+
+    // Clear dropdown for the player who passed
+    if (passerPosition === myPosition) {
+        bidSelect.innerHTML = '';
+        bidSelect.disabled = true;
+    }
 
     // Update bidding UI for next bidder
     updateBiddingUI(currentBidder, currentBidAmount);
