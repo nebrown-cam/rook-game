@@ -79,7 +79,7 @@ let isMyTurn = false;
 
 const BASE_WIDTH = 1200;
 const BASE_HEIGHT = 1200;
-const MIN_SCALE = 0.4;  // Prevent game from becoming too small
+const MIN_SCALE = 0.7;  // Prevent game from becoming too small on laptop screens
 const MAX_SCALE = 1.2;  // Prevent excessive enlargement
 const VERTICAL_PADDING = 20;  // Padding at top and bottom (in pixels)
 
