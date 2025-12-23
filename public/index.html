@@ -91,38 +91,36 @@
                 </div>
 
                 <div class="grid-cell bottom-left">
-                </div>
-                <div class="grid-cell bottom-center">
-                    <div class="bottom-panel">
-                        <div class="player-area you">
-                            <label class="area-label" id="your-name">You</label>
-                            <div class="card-row your-hand" id="your-hand"></div>
+                    <div class="controls-area">
+                        <div class="control-row">
+                            <select id="bid-select"></select>
+                            <button id="bid-btn">Bid</button>
                         </div>
-                        <div class="controls-area">
-                            <div class="control-row">
-                                <label class="help-bid" id="help-bid-value"></label>
-                                <select id="bid-select"></select>
-                                <button id="bid-btn">Bid</button>
-                            </div>
-                            <div class="control-row">
-                                <button id="pass-btn">Pass</button>
-                            </div>
-                            <div class="control-row">
-                                <select id="trump-select" disabled>
-                                    <option value="Black">Black</option>
-                                    <option value="Green">Green</option>
-                                    <option value="Red">Red</option>
-                                    <option value="Yellow">Yellow</option>
-                                </select>
-                                <button id="trump-btn" disabled>Trump</button>
-                            </div>
-                            <div class="control-row">
-                                <button id="discard-btn" disabled>Discard</button>
-                            </div>
+                        <div class="control-row">
+                            <button id="pass-btn">Pass</button>
+                        </div>
+                        <div class="control-row">
+                            <select id="trump-select" disabled>
+                                <option value="Black">Black</option>
+                                <option value="Green">Green</option>
+                                <option value="Red">Red</option>
+                                <option value="Yellow">Yellow</option>
+                            </select>
+                            <button id="trump-btn" disabled>Trump</button>
+                        </div>
+                        <div class="control-row">
+                            <button id="discard-btn" disabled>Discard</button>
                         </div>
                     </div>
                 </div>
+                <div class="grid-cell bottom-center">
+                    <div class="player-area you">
+                        <label class="area-label" id="your-name">You</label>
+                        <div class="card-row your-hand" id="your-hand"></div>
+                    </div>
+                </div>
                 <div class="grid-cell bottom-right">
+                    <label class="help-bid" id="help-bid-value"></label>
                 </div>
 
             </div>

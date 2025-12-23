@@ -74,63 +74,7 @@ let trickPlayMode = false;
 let isMyTurn = false;
 
 // ------------------------------------------------
-// RESPONSIVE SCALING - Improved Implementation
-// ------------------------------------------------
-
-const BASE_WIDTH = 1200;
-const BASE_HEIGHT = 1200;
-const MIN_SCALE = 0.7;  // Prevent game from becoming too small on laptop screens
-const MAX_SCALE = 1.2;  // Prevent excessive enlargement
-const VERTICAL_PADDING = 20;  // Padding at top and bottom (in pixels)
-
-let resizeTimeout = null;
-
-function scaleGame() {
-    const gameContainer = document.getElementById('game-container');
-    if (!gameContainer || gameScreen.classList.contains('hidden')) return;
-    
-    // Get available space (subtract padding from height)
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight - (VERTICAL_PADDING * 2);
-    
-    // Calculate scale to fit while maintaining aspect ratio
-    const scaleX = windowWidth / BASE_WIDTH;
-    const scaleY = windowHeight / BASE_HEIGHT;
-    
-    // Use the smaller scale to ensure it fits in both dimensions
-    let scale = Math.min(scaleX, scaleY);
-    
-    // Clamp scale to min/max bounds
-    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
-    
-    // Apply the scale transform
-    gameContainer.style.transform = `scale(${scale})`;
-    
-    // Adjust container position to center properly after scaling
-    // This accounts for the fact that transform doesn't affect layout
-    const scaledWidth = BASE_WIDTH * scale;
-    const scaledHeight = BASE_HEIGHT * scale;
-    
-    gameContainer.style.left = `${(window.innerWidth - scaledWidth) / 2}px`;
-    gameContainer.style.top = `${VERTICAL_PADDING + (windowHeight - scaledHeight) / 2}px`;
-}
-
-// Debounced resize handler
-function handleResize() {
-    if (resizeTimeout) {
-        clearTimeout(resizeTimeout);
-    }
-    resizeTimeout = setTimeout(scaleGame, 100);
-}
-
-// Scale on window resize (debounced)
-window.addEventListener('resize', handleResize);
-
-// Initial scale when page loads
-window.addEventListener('load', scaleGame);
-
-// ------------------------------------------------
-// END RESPONSIVE SCALING
+// RESPONSIVE SCALING - Removed (now using CSS viewport units)
 // ------------------------------------------------
 
 // Join button click handler
@@ -277,9 +221,6 @@ socket.on('game-started', (data) => {
 
     // Update bidding UI
     updateBiddingUI(currentBidder, currentBid);
-
-    // Scale the game after DOM updates
-    requestAnimationFrame(scaleGame);
 });
 
 // Handle new round (after first round)
@@ -360,9 +301,6 @@ socket.on('new-round', (data) => {
             helpBidValue.textContent = `Waiting for ${getPlayerNameByPosition(currentBidder)} ...`;
         }
     }, 2000);
-
-    // Scale the game after DOM updates
-    requestAnimationFrame(scaleGame);
 });
 
 // Calculate relative positions (who is partner, left, right)
