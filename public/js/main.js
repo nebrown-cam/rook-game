@@ -797,7 +797,7 @@ socket.on('trump-selected', (data) => {
         // Discard button stays disabled until 5 cards are selected
         discardBtn.disabled = true;
     } else {
-        helpBidValue.textContent = `Trump: ${trump}. ${declarer} is discarding...`;
+        helpBidValue.textContent = `${declarer} is discarding...`;
     }
 });
 

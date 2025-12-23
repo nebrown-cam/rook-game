@@ -11,10 +11,10 @@
     --card-width: 100px;
     --card-height: 131px;
     
-    /* Derived values for spacing/overlap */
+    /* Derived values for spacing/overlap (more negative brings cards close together)*/
     --card-overlap-hand: -50px;
     --card-overlap-partner: -62px;
-    --card-overlap-side: -75px;
+    --card-overlap-side: -90px;
     --card-overlap-nest: 12px;
     --card-border-radius: 6px;
     
