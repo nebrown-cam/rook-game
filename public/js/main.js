@@ -15,6 +15,8 @@ const displayRoomCode = document.getElementById('display-room-code');
 const playersList = document.getElementById('players');
 const startBtn = document.getElementById('start-btn');
 const waitingMessage = document.querySelector('.waiting-message');
+const partnerSelection = document.getElementById('partner-selection');
+const partnerDropdown = document.getElementById('partner-dropdown');
 
 // Game elements
 const yourHand = document.getElementById('your-hand');
@@ -54,10 +56,16 @@ const teamAiScore = document.getElementById('team-ai-score');
 const teamHumanName = document.getElementById('team-human-name');
 const teamAiName = document.getElementById('team-ai-name');
 
+// Modal elements
+const playAgainModal = document.getElementById('play-again-modal');
+const playAgainYesBtn = document.getElementById('play-again-yes');
+const playAgainNoBtn = document.getElementById('play-again-no');
+
 // Store local player info
 let myPlayerId = null;
 let myPosition = null;
 let isHost = false;
+let selectedPartnerId = null;
 let myHand = [];
 let selectedCard = null;
 let gameConfig = null;
@@ -112,6 +120,28 @@ playerNameInput.addEventListener('keypress', (e) => {
     }
 });
 
+// Partner selection change handler
+partnerDropdown.addEventListener('change', (e) => {
+    const partnerId = e.target.value;
+
+    if (partnerId) {
+        selectedPartnerId = partnerId;
+        socket.emit('select-partner', { partnerId });
+        console.log('Partner selected:', partnerId);
+
+        // Update UI immediately
+        startBtn.classList.remove('hidden');
+        waitingMessage.style.display = 'none';
+    } else {
+        selectedPartnerId = null;
+
+        // Update UI immediately
+        startBtn.classList.add('hidden');
+        waitingMessage.style.display = 'block';
+        waitingMessage.textContent = 'Select your partner to start...';
+    }
+});
+
 // Handle room update from server
 socket.on('room-update', (data) => {
     const { players, hostId } = data;
@@ -138,8 +168,44 @@ socket.on('room-update', (data) => {
         playersList.appendChild(li);
     });
 
-    // Show/hide start button (only host sees it when 4 players are present)
+    // Handle partner selection dropdown
     if (isHost && players.length === 4) {
+        // Show partner selection dropdown
+        partnerSelection.classList.remove('hidden');
+
+        // Check if selected partner is still in the room
+        if (selectedPartnerId) {
+            const partnerStillPresent = players.some(p => p.id === selectedPartnerId);
+            if (!partnerStillPresent) {
+                selectedPartnerId = null;
+                partnerDropdown.value = '';
+            }
+        }
+
+        // Populate dropdown with other players (not the host)
+        partnerDropdown.innerHTML = '<option value="">-- Choose Partner --</option>';
+        players.forEach(player => {
+            if (player.id !== socket.id) {
+                const option = document.createElement('option');
+                option.value = player.id;
+                option.textContent = player.name;
+                if (player.id === selectedPartnerId) {
+                    option.selected = true;
+                }
+                partnerDropdown.appendChild(option);
+            }
+        });
+    } else {
+        // Hide partner selection if not host or < 4 players
+        partnerSelection.classList.add('hidden');
+        if (players.length < 4) {
+            selectedPartnerId = null;
+            partnerDropdown.value = '';
+        }
+    }
+
+    // Show/hide start button (only host sees it when 4 players and partner selected)
+    if (isHost && players.length === 4 && selectedPartnerId) {
         startBtn.classList.remove('hidden');
         waitingMessage.style.display = 'none';
     } else {
@@ -147,7 +213,11 @@ socket.on('room-update', (data) => {
         if (players.length < 4) {
             waitingMessage.style.display = 'block';
             waitingMessage.textContent = `Waiting for ${4 - players.length} more player${4 - players.length !== 1 ? 's' : ''}...`;
+        } else if (isHost && !selectedPartnerId) {
+            waitingMessage.style.display = 'block';
+            waitingMessage.textContent = 'Select your partner to start...';
         } else {
+            waitingMessage.style.display = 'block';
             waitingMessage.textContent = 'Waiting for host to start...';
         }
     }
@@ -296,7 +366,7 @@ socket.on('new-round', (data) => {
     // After a moment, switch to normal bidding message
     setTimeout(() => {
         if (currentBidder === myPosition) {
-            helpBidValue.textContent = 'Opening bid:';
+            helpBidValue.textContent = 'Place your bid';
         } else {
             helpBidValue.textContent = `Waiting for ${getPlayerNameByPosition(currentBidder)} ...`;
         }
@@ -415,10 +485,10 @@ function updateDiscardButtonState() {
     
     if (count === 5) {
         discardBtn.disabled = false;
-        helpBidValue.textContent = `Click Discard to continue.`;
+        helpBidValue.textContent = `Click Discard to continue`;
     } else {
         discardBtn.disabled = true;
-        helpBidValue.textContent = `Select 5 cards to discard (${count} selected)`;
+        helpBidValue.textContent = `Select 5 cards to discard`;
     }
 }
 
@@ -466,7 +536,7 @@ function updateBiddingUI(currentBidder, currentBid) {
 
     // Update help text
     if (currentBid === 0) {
-        helpBidValue.textContent = 'Opening bid:';
+        helpBidValue.textContent = 'Waiting for opening bid...';
     } else {
         helpBidValue.textContent = `Current bid: ${currentBid}`;
     }
@@ -553,7 +623,7 @@ trumpBtn.addEventListener('click', () => {
 discardBtn.addEventListener('click', () => {
     // Validate exactly 5 cards selected
     if (selectedCards.length !== 5) {
-        alert('Please select exactly 5 cards to discard.');
+        alert('Select 5 cards to discard.');
         return;
     }
 
@@ -566,6 +636,17 @@ discardBtn.addEventListener('click', () => {
     // Disable button while waiting for server response
     discardBtn.disabled = true;
     helpBidValue.textContent = 'Discarding...';
+});
+
+// Play again modal button handlers
+playAgainYesBtn.addEventListener('click', () => {
+    playAgainModal.classList.add('hidden');
+    socket.emit('restart-game');
+    helpBidValue.textContent = 'Starting new game...';
+});
+
+playAgainNoBtn.addEventListener('click', () => {
+    playAgainModal.classList.add('hidden');
 });
 
 // Handle bid update from server
@@ -655,6 +736,17 @@ socket.on('bidding-complete', (data) => {
 
     console.log(`Bidding complete! ${winner} won with ${winningBid}`);
 
+    // If I won the bid, set the dropdown to show my winning bid
+    if (winnerPosition === myPosition) {
+        // Clear dropdown and add only the winning bid as an option
+        bidSelect.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = winningBid;
+        option.textContent = winningBid;
+        bidSelect.appendChild(option);
+        bidSelect.value = winningBid;
+    }
+
     // Disable bidding controls
     bidBtn.disabled = true;
     passBtn.disabled = true;
@@ -731,7 +823,7 @@ socket.on('trump-selected', (data) => {
         discardMode = true;
         selectedCards = [];
         
-        helpBidValue.textContent = `Select 5 cards to discard (0 selected)`;
+        helpBidValue.textContent = `Select 5 cards to discard`;
         // Discard button stays disabled until 5 cards are selected
         discardBtn.disabled = true;
     } else {
@@ -905,9 +997,9 @@ socket.on('round-complete', (data) => {
     // Show round summary
     const declarerName = getPlayerNameByPosition(highBidderPosition);
     if (madeContract) {
-        helpBidValue.textContent = `${declarerName} made ${bid}!`;
+        helpBidValue.textContent = `${declarerName} made their bid of ${bid}!`;
     } else {
-        helpBidValue.textContent = `${declarerName} was SET on ${bid}!`;
+        helpBidValue.textContent = `${declarerName} was SET for ${bid}!`;
     }
 
     // Exit trick play mode
@@ -943,13 +1035,9 @@ socket.on('game-over', (data) => {
 
     // Show different messages based on host status
     if (isHost) {
-        // Host sees confirm dialog
+        // Host sees custom modal
         setTimeout(() => {
-            const playAgain = confirm('Play another game?');
-            if (playAgain) {
-                socket.emit('restart-game');
-                helpBidValue.textContent = 'Starting new game...';
-            }
+            playAgainModal.classList.remove('hidden');
         }, 2000); // Small delay so they can see the final score first
     } else {
         // Non-host sees waiting message
@@ -1105,7 +1193,7 @@ function renderNestEmpty() {
     nestCards.innerHTML = '';
     const message = document.createElement('div');
     message.style.cssText = 'color: white; font-size: 14px; padding: 10px; text-align: center;';
-    message.textContent = 'In your hand';
+    message.textContent = '';
     nestCards.appendChild(message);
 }
 
@@ -1130,4 +1218,14 @@ function renderNestFaceDown(count) {
 // Handle error messages from server
 socket.on('error-message', (message) => {
     alert(message);
+});
+
+// Handle partner selection reset (when selected partner leaves)
+socket.on('partner-selection-reset', () => {
+    selectedPartnerId = null;
+    partnerDropdown.value = '';
+    startBtn.classList.add('hidden');
+    waitingMessage.style.display = 'block';
+    waitingMessage.textContent = 'Your partner left. Please select again.';
+    console.log('Partner selection reset');
 });

@@ -399,6 +399,7 @@ io.on('connection', (socket) => {
             rooms[roomCodeUpper] = {
                 players: [],
                 host: socket.id,
+                selectedPartner: null,
                 gameStarted: false,
                 hands: [],
                 nest: [],
@@ -459,6 +460,33 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Host selects their partner
+    socket.on('select-partner', (data) => {
+        const roomCode = socket.roomCode;
+        const room = rooms[roomCode];
+
+        if (!room) return;
+
+        // Only host can select partner
+        if (socket.id !== room.host) {
+            return;
+        }
+
+        const { partnerId } = data;
+
+        // Validate that the partner is in the room
+        const partnerExists = room.players.some(p => p.id === partnerId);
+        if (!partnerExists) {
+            socket.emit('error-message', 'Selected partner is not in the room.');
+            return;
+        }
+
+        // Store the selected partner
+        room.selectedPartner = partnerId;
+
+        console.log(`Host selected partner: ${partnerId}`);
+    });
+
     // Host starts the game
     socket.on('start-game', () => {
         const roomCode = socket.roomCode;
@@ -477,7 +505,31 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Validate that host has selected a partner
+        if (!room.selectedPartner) {
+            socket.emit('error-message', 'Please select your partner before starting.');
+            return;
+        }
+
         room.gameStarted = true;
+
+        // Reassign positions based on partner selection
+        // Host gets position 0, partner gets position 2, others get 1 and 3
+        const host = room.players.find(p => p.id === room.host);
+        const partner = room.players.find(p => p.id === room.selectedPartner);
+        const others = room.players.filter(p =>
+            p.id !== room.host && p.id !== room.selectedPartner
+        );
+
+        host.position = 0;
+        partner.position = 2;
+        others[0].position = 1;
+        others[1].position = 3;
+
+        // Re-sort players array by position for consistency
+        room.players.sort((a, b) => a.position - b.position);
+
+        console.log(`Positions assigned: ${host.name}=0, ${partner.name}=2, ${others[0].name}=1, ${others[1].name}=3`);
 
         // Deal the cards
         const { hands, nest } = game.dealCards();
@@ -1188,6 +1240,15 @@ io.on('connection', (socket) => {
         // If host left, assign new host
         if (room.host === socket.id) {
             room.host = room.players[0].id;
+            // Reset partner selection when host changes
+            room.selectedPartner = null;
+        }
+
+        // If selected partner left, reset selection and notify host
+        if (room.selectedPartner === socket.id) {
+            room.selectedPartner = null;
+            io.to(room.host).emit('partner-selection-reset');
+            console.log('Selected partner left, selection reset');
         }
 
         // Update remaining players

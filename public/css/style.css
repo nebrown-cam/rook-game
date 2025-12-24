@@ -146,6 +146,39 @@ button:disabled {
     font-weight: bold;
 }
 
+/* Partner Selection */
+.partner-selection {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px auto;
+    max-width: 400px;
+    backdrop-filter: blur(5px);
+    text-align: center;
+}
+
+.partner-selection label {
+    display: block;
+    margin-bottom: 12px;
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+}
+
+#partner-dropdown {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    background-color: white;
+    cursor: pointer;
+}
+
+#partner-dropdown:focus {
+    outline: 3px solid #ffd700;
+}
+
 .waiting-message {
     margin: 20px 0;
     font-style: italic;
@@ -317,6 +350,7 @@ button:disabled {
     width: calc(var(--card-width) + var(--card-overlap-nest) * 4 + 10px);
     height: var(--card-height);
     margin-top: min(0.5vh, 5px);
+    padding-right: min(1vh, 10px);
 }
 
 .card-stack .card-back,
@@ -605,10 +639,9 @@ button:disabled {
     font-weight: bold;
     color: #ffd700;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-    max-width: 250px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 20vw;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* Override button styles for controls */
@@ -656,8 +689,6 @@ button:disabled {
 /* Discard selection - subtle raise without popping forward */
 .card-row.your-hand .card.discard-selected {
     transform: translateY(-20px);
-    box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.7);
-    border: 2px solid #ffd700;
 }
 
 /* Override hover effect during discard mode - keep it more subtle */
@@ -666,20 +697,75 @@ button:disabled {
     z-index: auto;
 }
 
-/* Current turn indicator - glowing effect on player name */
+/* Current turn indicator - gold highlight on player name */
 .current-turn {
     color: #ffd700 !important;
-    text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ff8c00 !important;
-    animation: pulse-glow 1.5s ease-in-out infinite;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8) !important;
 }
 
-@keyframes pulse-glow {
-    0%, 100% {
-        text-shadow: 0 0 10px #ffd700, 0 0 20px #ffd700, 0 0 30px #ff8c00;
-    }
-    50% {
-        text-shadow: 0 0 15px #ffd700, 0 0 30px #ffd700, 0 0 45px #ff8c00;
-    }
+/* ------------------------------------------------
+   CUSTOM MODAL
+   ------------------------------------------------
+*/
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: rgba(26, 92, 46, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    text-align: center;
+    min-width: 300px;
+}
+
+.modal-content h2 {
+    color: white;
+    margin-bottom: 30px;
+    font-size: 28px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+
+.modal-btn {
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    background-color: #ffd700;
+    color: #1a5c2e;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+}
+
+.modal-btn:hover {
+    background-color: #ffec80;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.modal-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* ------------------------------------------------

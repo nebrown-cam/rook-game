@@ -23,6 +23,12 @@
             <h3>Players:</h3>
             <ul id="players"></ul>
         </div>
+        <div id="partner-selection" class="partner-selection hidden">
+            <label for="partner-dropdown">Select Your Partner:</label>
+            <select id="partner-dropdown">
+                <option value="">-- Choose Partner --</option>
+            </select>
+        </div>
         <p class="waiting-message">Waiting for 4 players...</p>
         <button id="start-btn" class="hidden">Start Game</button>
     </div>
@@ -126,6 +132,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Custom modal for play again prompt -->
+    <div id="play-again-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Play another game?</h2>
+            <div class="modal-buttons">
+                <button id="play-again-yes" class="modal-btn">Yes</button>
+                <button id="play-again-no" class="modal-btn">No</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/main.js"></script>
 </body>
