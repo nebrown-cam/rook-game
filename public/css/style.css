@@ -338,6 +338,7 @@ button:disabled {
     max-width: 100%;
     padding: min(1vh, 15px);
     margin: min(1vh, 15px);
+    margin-right: min(3vh, 40px);
     background: rgba(26, 92, 46, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
@@ -359,7 +360,6 @@ button:disabled {
     width: var(--card-width);
     height: var(--card-height);
     border-radius: var(--card-border-radius);
-    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
     top: 0;
 }
 
